@@ -13,8 +13,10 @@ class OrderDetailScreen extends StatefulWidget {
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   final ApiService _apiService = ApiService();
-  late Future<Orden> _orderFuture;
-  bool _isLoading = false;
+  // CAMBIO: Ahora el estado de la orden se maneja directamente aquí.
+  Orden? _currentOrder;
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -22,13 +24,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     _loadOrderDetails();
   }
   
-  void _loadOrderDetails() {
+  Future<void> _loadOrderDetails() async {
     setState(() {
-      _orderFuture = _apiService.getOrderDetails(widget.orderId);
+      _isLoading = true;
+      _error = null;
     });
+    try {
+      final order = await _apiService.getOrderDetails(widget.orderId);
+      if (mounted) {
+        setState(() {
+          _currentOrder = order;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
-  // Diálogo de confirmación genérico
   Future<void> _showConfirmationDialog({
     required String title,
     required String content,
@@ -62,12 +80,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _takeOrder() async {
     setState(() => _isLoading = true);
     try {
-      await _apiService.acceptOrder(widget.orderId);
+      final updatedOrder = await _apiService.acceptOrder(widget.orderId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden tomada exitosamente.'), backgroundColor: Colors.green),
         );
-        _loadOrderDetails();
+        // CAMBIO: Actualizamos el estado local directamente para una UI instantánea.
+        setState(() => _currentOrder = updatedOrder);
       }
     } catch (e) {
       if (mounted) {
@@ -104,12 +123,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _closeOrder() async {
     setState(() => _isLoading = true);
     try {
-      await _apiService.closeOrder(widget.orderId);
+      final updatedOrder = await _apiService.closeOrder(widget.orderId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden cerrada exitosamente.'), backgroundColor: Colors.blue),
         );
-        Navigator.of(context).pop('refresh');
+        // CAMBIO: Actualizamos el estado local directamente.
+        setState(() => _currentOrder = updatedOrder);
+        // Esperamos un momento y luego volvemos a la lista.
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            Navigator.of(context).pop('refresh');
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -126,50 +152,46 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Detalles de Orden #${widget.orderId}')),
-      body: FutureBuilder<Orden>(
-        future: _orderFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error al cargar detalles: ${snapshot.error}'));
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: Text('No se encontraron datos.'));
-          }
-
-          final orden = snapshot.data!;
-          return Stack(
-            children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100), // Espacio para botones
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildDetailSection(orden) // Widget que contiene todos los detalles
-                  ],
-                ),
-              ),
-              if (_isLoading)
-                const Center(child: CircularProgressIndicator()),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  padding: const EdgeInsets.all(16.0),
-                  child: _buildActionButtons(orden),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+      body: _buildBody(),
     );
   }
-
+  
+  Widget _buildBody() {
+    if (_isLoading && _currentOrder == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(child: Text('Error al cargar detalles: $_error'));
+    }
+    if (_currentOrder == null) {
+      return const Center(child: Text('No se encontraron datos.'));
+    }
+    
+    final orden = _currentOrder!;
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          child: _buildDetailSection(orden),
+        ),
+        if (_isLoading)
+          Container(
+            color: Colors.black.withOpacity(0.1),
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            padding: const EdgeInsets.all(16.0),
+            child: _buildActionButtons(orden),
+          ),
+        ),
+      ],
+    );
+  }
   // Widget que construye la sección de botones de acción
   Widget _buildActionButtons(Orden orden) {
     if (orden.status == 'abierta') {
