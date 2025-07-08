@@ -13,10 +13,10 @@ class OrderDetailScreen extends StatefulWidget {
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   final ApiService _apiService = ApiService();
-  // CAMBIO: Ahora el estado de la orden se maneja directamente aquí.
   Orden? _currentOrder;
   bool _isLoading = true;
   String? _error;
+  bool _hasStateChanged = false;
 
   @override
   void initState() {
@@ -85,8 +85,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden tomada exitosamente.'), backgroundColor: Colors.green),
         );
-        // CAMBIO: Actualizamos el estado local directamente para una UI instantánea.
-        setState(() => _currentOrder = updatedOrder);
+        setState(() {
+          _currentOrder = updatedOrder;
+          _hasStateChanged = true;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -128,9 +130,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden cerrada exitosamente.'), backgroundColor: Colors.blue),
         );
-        // CAMBIO: Actualizamos el estado local directamente.
         setState(() => _currentOrder = updatedOrder);
-        // Esperamos un momento y luego volvemos a la lista.
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) {
             Navigator.of(context).pop('refresh');
@@ -150,9 +150,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Detalles de Orden #${widget.orderId}')),
-      body: _buildBody(),
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pop(_hasStateChanged ? 'refresh' : null);
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text('Detalles de Orden #${widget.orderId}')),
+        body: _buildBody(),
+      ),
     );
   }
   
@@ -192,7 +198,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       ],
     );
   }
-  // Widget que construye la sección de botones de acción
+
   Widget _buildActionButtons(Orden orden) {
     if (orden.status == 'abierta') {
       return Row(
@@ -247,13 +253,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         child: const Text('Cerrar Orden', style: TextStyle(color: Colors.white)),
       );
     }
-    return const SizedBox.shrink(); // No muestra botones para otros estados
+    return const SizedBox.shrink();
   }
 
-  // Widget que construye toda la sección de detalles
   Widget _buildDetailSection(Orden orden) {
     final currencyFormatter = NumberFormat.currency(locale: 'es_CO', symbol: '\$');
-    final dateFormatter = DateFormat('dd/MM/yyyy hh:mm a');
+    // CORRECCIÓN: Se usa un formato de 12 horas con AM/PM.
+    final dateFormatter = DateFormat('dd/MM/yyyy hh:mm a', 'es_CO');
     
     return Column(
       children: [
@@ -296,7 +302,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  // Widget para construir cada tarjeta de detalles
   Widget _buildDetailCard(String title, List<Widget> children) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -316,7 +321,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  // Widget para construir cada fila de detalle (Label: Value)
   Widget _buildDetailRow(String label, String? value, {bool highlight = false}) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(

@@ -57,7 +57,7 @@ class Orden {
       numeroOrden: json['numero_orden'],
       numeroExpediente: json['numero_expediente'],
       nombreCliente: json['nombre_cliente'],
-      fechaHora: DateTime.parse(json['fecha_hora']),
+      fechaHora: DateTime.parse(json['fecha_hora']).toLocal(),
       valorServicio: json['valor_servicio'] != null ? double.parse(json['valor_servicio']) : null,
       placa: json['placa'],
       referencia: json['referencia'],
