@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "326040258991",
+    "project_id": "filamentgrua",
+    "storage_bucket": "filamentgrua.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:326040258991:android:71a020f305ac485db8075a",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUrKKvgB7g3AMpKeCYbCec8IABb5kq2Zo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
