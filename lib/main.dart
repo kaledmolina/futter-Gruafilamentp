@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:intl/date_symbol_data_local.dart'; // Import para localización de fechas
+import 'package:intl/date_symbol_data_local.dart';
 import 'services/notification_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/auth_service.dart';
 import 'firebase_options.dart';
+import 'services/upload_service.dart'; // Importar el nuevo servicio
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Inicializa la localización para el formato de fechas en español
   await initializeDateFormatting('es_CO', null);
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await NotificationService.instance.initialize();
+  // Inicia el servicio de subida en segundo plano
+  UploadService.instance.start(); 
   runApp(const MyApp());
 }
 
@@ -26,7 +28,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'App para Técnicos',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 7, 226, 255)),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 53, 214, 166)),
         useMaterial3: true,
       ),
       debugShowCheckedModeBanner: false,

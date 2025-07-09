@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/orden_model.dart';
 import '../services/api_service.dart';
+import 'manage_order_screen.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final int orderId;
@@ -125,17 +126,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _closeOrder() async {
     setState(() => _isLoading = true);
     try {
-      final updatedOrder = await _apiService.closeOrder(widget.orderId);
+      await _apiService.closeOrder(widget.orderId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden cerrada exitosamente.'), backgroundColor: Colors.blue),
         );
-        setState(() => _currentOrder = updatedOrder);
-        Future.delayed(const Duration(seconds: 1), () {
-          if (mounted) {
-            Navigator.of(context).pop('refresh');
-          }
-        });
+        Navigator.of(context).pop('refresh');
       }
     } catch (e) {
       if (mounted) {
@@ -177,7 +173,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Stack(
       children: [
         SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 150), // Aumentar padding para más botones
           child: _buildDetailSection(orden),
         ),
         if (_isLoading)
@@ -199,6 +195,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  // MÉTODO ACTUALIZADO PARA MOSTRAR LOS BOTONES
   Widget _buildActionButtons(Orden orden) {
     if (orden.status == 'abierta') {
       return Row(
@@ -239,18 +236,44 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       );
     }
     if (orden.status == 'en proceso') {
-      return ElevatedButton(
-        onPressed: () => _showConfirmationDialog(
-          title: 'Cerrar Orden',
-          content: '¿Está seguro de que desea cerrar esta orden? Esta acción no se puede deshacer.',
-          confirmText: 'Sí, Cerrar',
-          onConfirm: _closeOrder,
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-        ),
-        child: const Text('Cerrar Orden', style: TextStyle(color: Colors.white)),
+      // Se usa una Columna para mostrar ambos botones
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ElevatedButton.icon(
+            icon: const Icon(Icons.edit_document, color: Colors.white),
+            label: const Text('Gestionar Orden', style: TextStyle(color: Colors.white)),
+            onPressed: () async {
+              final result = await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ManageOrderScreen(orden: orden),
+                ),
+              );
+              if (result == 'refresh' && mounted) {
+                _loadOrderDetails();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.check_circle, color: Colors.white),
+            label: const Text('Cerrar Orden', style: TextStyle(color: Colors.white)),
+            onPressed: () => _showConfirmationDialog(
+              title: 'Cerrar Orden',
+              content: '¿Está seguro de que desea cerrar esta orden? Esta acción no se puede deshacer.',
+              confirmText: 'Sí, Cerrar',
+              onConfirm: _closeOrder,
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ],
       );
     }
     return const SizedBox.shrink();
@@ -258,7 +281,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Widget _buildDetailSection(Orden orden) {
     final currencyFormatter = NumberFormat.currency(locale: 'es_CO', symbol: '\$');
-    // CORRECCIÓN: Se usa un formato de 12 horas con AM/PM.
     final dateFormatter = DateFormat('dd/MM/yyyy hh:mm a', 'es_CO');
     
     return Column(
