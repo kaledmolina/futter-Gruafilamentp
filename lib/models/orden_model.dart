@@ -22,6 +22,7 @@ class Orden {
   final String direccionDestino;
   final String? observacionesDestino;
   final bool esProgramada;
+  final DateTime? fechaProgramada;
   final String status;
 
   Orden({
@@ -48,6 +49,7 @@ class Orden {
     required this.direccionDestino,
     this.observacionesDestino,
     required this.esProgramada,
+    this.fechaProgramada,
     required this.status,
   });
 
@@ -76,6 +78,8 @@ class Orden {
       direccionDestino: json['direccion_destino'],
       observacionesDestino: json['observaciones_destino'],
       esProgramada: json['es_programada'] == 1,
+            fechaProgramada: json['fecha_programada'] != null ? DateTime.parse(json['fecha_programada']).toLocal() : null,
+
       status: json['status'],
     );
   }

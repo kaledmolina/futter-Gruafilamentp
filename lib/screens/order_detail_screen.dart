@@ -287,6 +287,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       children: [
         _buildDetailCard('Información Principal', [
           _buildDetailRow('Estado', orden.status.toUpperCase(), highlight: true),
+          if (orden.status == 'programada' && orden.fechaProgramada != null)
+            _buildDetailRow('Fecha Programada', dateFormatter.format(orden.fechaProgramada!), highlight: true),
           _buildDetailRow('Número de Orden', orden.numeroOrden),
           _buildDetailRow('Número de Expediente', orden.numeroExpediente),
           _buildDetailRow('Nombre Cliente', orden.nombreCliente),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import 'package:intl/intl.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'order_detail_screen.dart';
@@ -153,6 +154,13 @@ class _HomeScreenState extends State<HomeScreen> {
           final order = _orders[index];
           final statusInfo = _getStatusInfo(order['status']);
           
+          // CAMBIO: Se añade la lógica para mostrar la fecha programada en la lista
+          String subtitleText = 'Cliente: ${order['nombre_cliente']}';
+          if (order['status'] == 'programada' && order['fecha_programada'] != null) {
+            final formattedDate = DateFormat('dd/MM/yyyy hh:mm a', 'es_CO').format(DateTime.parse(order['fecha_programada']));
+            subtitleText += '\nProgramada para: $formattedDate';
+          }
+
           return Card(
             elevation: 2,
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -161,7 +169,8 @@ class _HomeScreenState extends State<HomeScreen> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               leading: Icon(statusInfo.$2, color: statusInfo.$1, size: 30),
               title: Text('Orden #${order['numero_orden']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('Cliente: ${order['nombre_cliente']}'),
+              subtitle: Text(subtitleText),
+              isThreeLine: order['status'] == 'programada', // Permite más espacio si es necesario
               trailing: Chip(
                 label: Text(order['status'].toString().toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 backgroundColor: statusInfo.$1,
