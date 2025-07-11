@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
-import 'package:intl/intl.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'order_detail_screen.dart';
@@ -94,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'cerrada': return (Colors.blue, Icons.check_circle_outline);
       case 'fallida': return (Colors.red, Icons.error_outline);
       case 'anulada': return (Colors.grey, Icons.cancel_outlined);
+      case 'rechazada': return (Colors.purple, Icons.thumb_down_alt_outlined);
       default: return (Colors.grey, Icons.help_outline);
     }
   }
@@ -154,10 +155,11 @@ class _HomeScreenState extends State<HomeScreen> {
           final order = _orders[index];
           final statusInfo = _getStatusInfo(order['status']);
           
-          // CAMBIO: Se añade la lógica para mostrar la fecha programada en la lista
           String subtitleText = 'Cliente: ${order['nombre_cliente']}';
           if (order['status'] == 'programada' && order['fecha_programada'] != null) {
-            final formattedDate = DateFormat('dd/MM/yyyy hh:mm a', 'es_CO').format(DateTime.parse(order['fecha_programada']));
+            // CORRECCIÓN: Se parsea la fecha como UTC y se convierte a local
+            final date = DateTime.parse(order['fecha_programada']).toLocal();
+            final formattedDate = DateFormat('dd/MM/yyyy hh:mm a', 'es_CO').format(date);
             subtitleText += '\nProgramada para: $formattedDate';
           }
 
@@ -170,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: Icon(statusInfo.$2, color: statusInfo.$1, size: 30),
               title: Text('Orden #${order['numero_orden']}', style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text(subtitleText),
-              isThreeLine: order['status'] == 'programada', // Permite más espacio si es necesario
+              isThreeLine: order['status'] == 'programada',
               trailing: Chip(
                 label: Text(order['status'].toString().toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 backgroundColor: statusInfo.$1,
@@ -193,7 +195,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // CORRECCIÓN: Se usa un ListView para que el contenido sea desplazable.
   Widget _buildDrawer() {
     return Drawer(
       child: Column(
@@ -217,7 +218,6 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          // Expanded permite que el ListView ocupe el espacio restante.
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
@@ -241,7 +241,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          // El botón de logout se mantiene fijo en la parte inferior.
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout),
