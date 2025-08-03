@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,6 +11,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/upload_service.dart';
+import '../widgets/app_background.dart';
 import 'photo_view_screen.dart';
 
 class ManageOrderScreen extends StatefulWidget {
@@ -157,50 +159,96 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Gestionar Orden #${widget.orden.numeroOrden}')),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _celularController,
-                decoration: const InputDecoration(labelText: 'Celular', border: OutlineInputBorder()),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _obsOrigenController,
-                decoration: const InputDecoration(labelText: 'Observaciones de Origen', border: OutlineInputBorder()),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _obsDestinoController,
-                decoration: const InputDecoration(labelText: 'Observaciones de Destino', border: OutlineInputBorder()),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 24),
-              const Text('Fotos de la Orden', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              _isLoading ? const Center(child: CircularProgressIndicator()) : _buildPhotoGrid(),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.add_a_photo),
-                label: const Text('Añadir Foto'),
-                onPressed: _pickImage,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _saveAndQueue,
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                child: _isLoading ? const CircularProgressIndicator() : const Text('Guardar y Sincronizar'),
-              ),
-            ],
+    return AppBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: Text('Gestionar Orden #${widget.orden.numeroOrden}'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          foregroundColor: Colors.black87,
+        ),
+        body: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildGlassCard(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _celularController,
+                          decoration: const InputDecoration(labelText: 'Celular', border: OutlineInputBorder()),
+                          keyboardType: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _obsOrigenController,
+                          decoration: const InputDecoration(labelText: 'Observaciones de Origen', border: OutlineInputBorder()),
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _obsDestinoController,
+                          decoration: const InputDecoration(labelText: 'Observaciones de Destino', border: OutlineInputBorder()),
+                          maxLines: 3,
+                        ),
+                      ],
+                    ),
+                  )
+                ),
+                const SizedBox(height: 24),
+                Text('Fotos de la Orden', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                _isLoading ? const Center(child: CircularProgressIndicator()) : _buildPhotoGrid(),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.add_a_photo),
+                  label: const Text('Añadir Foto'),
+                  onPressed: _pickImage,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                    backgroundColor: Colors.white.withOpacity(0.5)
+                  ),
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  icon: const Icon(Icons.sync),
+                  label: const Text('Guardar y Sincronizar'),
+                  onPressed: _isLoading ? null : _saveAndQueue,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGlassCard({required Widget child}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(16.0),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 1.5,
+            ),
+          ),
+          child: child,
         ),
       ),
     );
@@ -224,11 +272,9 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
 
   Widget _buildPhotoItem(PhotoDisplay photo) {
     Widget imageWidget;
-    // CORRECCIÓN: Se construye la URL correcta para las fotos subidas.
-    if (photo.status == PhotoStatusType.uploaded && photo.remoteId != null) {
-      final secureUrl = '${ApiService.baseUrl}/v1/private-fotos/${photo.remoteId}';
+    if (photo.status == PhotoStatusType.uploaded && photo.url != null) {
       imageWidget = Image.network(
-        secureUrl,
+        photo.url!,
         fit: BoxFit.cover,
         headers: {'Authorization': 'Bearer $_authToken'},
         loadingBuilder: (context, child, loadingProgress) {
@@ -250,7 +296,7 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
         ));
       },
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8.0),
+        borderRadius: BorderRadius.circular(12.0),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -276,6 +322,5 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
     );
   }
 }
-
 
 

@@ -1,8 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/orden_model.dart';
 import '../services/api_service.dart';
 import 'manage_order_screen.dart';
+import '../widgets/app_background.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final int orderId;
@@ -44,6 +47,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           _error = e.toString();
           _isLoading = false;
         });
+      }
+    }
+  }
+   Future<void> _launchCaller(String phoneNumber) async {
+    final Uri url = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo abrir la aplicación de llamadas para el número $phoneNumber')),
+        );
       }
     }
   }
@@ -126,12 +141,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _closeOrder() async {
     setState(() => _isLoading = true);
     try {
-      await _apiService.closeOrder(widget.orderId);
+      final updatedOrder = await _apiService.closeOrder(widget.orderId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden cerrada exitosamente.'), backgroundColor: Colors.blue),
         );
-        Navigator.of(context).pop('refresh');
+        setState(() => _currentOrder = updatedOrder);
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            Navigator.of(context).pop('refresh');
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -151,9 +171,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         Navigator.of(context).pop(_hasStateChanged ? 'refresh' : null);
         return false;
       },
-      child: Scaffold(
-        appBar: AppBar(title: Text('Detalles de Orden #${widget.orderId}')),
-        body: _buildBody(),
+      child: AppBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            title: Text('Detalles de Orden #${widget.orderId}'),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            foregroundColor: Colors.black87,
+          ),
+          body: _buildBody(),
+        ),
       ),
     );
   }
@@ -173,7 +201,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Stack(
       children: [
         SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 150), // Aumentar padding para más botones
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 150),
           child: _buildDetailSection(orden),
         ),
         if (_isLoading)
@@ -186,7 +214,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           left: 0,
           right: 0,
           child: Container(
-            color: Theme.of(context).scaffoldBackgroundColor,
             padding: const EdgeInsets.all(16.0),
             child: _buildActionButtons(orden),
           ),
@@ -195,25 +222,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  // MÉTODO ACTUALIZADO PARA MOSTRAR LOS BOTONES
   Widget _buildActionButtons(Orden orden) {
     if (orden.status == 'abierta') {
       return Row(
         children: [
           Expanded(
-            child: OutlinedButton(
+            // CORRECCIÓN: Se cambia OutlinedButton por ElevatedButton
+            child: ElevatedButton(
               onPressed: () => _showConfirmationDialog(
                 title: 'Rechazar Orden',
                 content: 'Si rechaza la orden, ya no podrá tomarla y se notificará al operador. ¿Está seguro?',
                 confirmText: 'Sí, Rechazar',
                 onConfirm: _rejectOrder,
               ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: const BorderSide(color: Colors.red),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: const Text('Rechazar'),
+              child: const Text('Rechazar', style: TextStyle(color: Colors.white)),
             ),
           ),
           const SizedBox(width: 10),
@@ -236,7 +262,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       );
     }
     if (orden.status == 'en proceso') {
-      // Se usa una Columna para mostrar ambos botones
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -285,68 +310,99 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     
     return Column(
       children: [
-        _buildDetailCard('Información Principal', [
-          _buildDetailRow('Estado', orden.status.toUpperCase(), highlight: true),
-          if (orden.status == 'programada' && orden.fechaProgramada != null)
-            _buildDetailRow('Fecha Programada', dateFormatter.format(orden.fechaProgramada!), highlight: true),
-          _buildDetailRow('Número de Orden', orden.numeroOrden),
-          _buildDetailRow('Número de Expediente', orden.numeroExpediente),
-          _buildDetailRow('Nombre Cliente', orden.nombreCliente),
-          _buildDetailRow('Fecha y Hora', dateFormatter.format(orden.fechaHora)),
-          _buildDetailRow('Valor del Servicio', orden.valorServicio != null ? currencyFormatter.format(orden.valorServicio) : 'No especificado'),
-          _buildDetailRow('¿Es Programada?', orden.esProgramada ? 'Sí' : 'No'),
-        ]),
-        _buildDetailCard('Información de Contacto', [
-          _buildDetailRow('Nombre Asignado', orden.nombreAsignado),
-          _buildDetailRow('Celular', orden.celular),
-        ]),
-        _buildDetailCard('Detalles del Vehículo/Activo', [
-          _buildDetailRow('Placa', orden.placa),
-          _buildDetailRow('Referencia', orden.referencia),
-          _buildDetailRow('Tipo de Activo', orden.tipoActivo),
-          _buildDetailRow('Marca', orden.marca),
-        ]),
-        _buildDetailCard('Detalles del Servicio', [
-          _buildDetailRow('Unidad de Negocio', orden.unidadNegocio),
-          _buildDetailRow('Movimiento', orden.movimiento),
-          _buildDetailRow('Servicio', orden.servicio),
-          _buildDetailRow('Modalidad', orden.modalidad),
-        ]),
-        _buildDetailCard('Origen', [
-          _buildDetailRow('Ciudad', orden.ciudadOrigen),
-          _buildDetailRow('Dirección', orden.direccionOrigen),
-          _buildDetailRow('Observaciones', orden.observacionesOrigen),
-        ]),
-        _buildDetailCard('Destino', [
-          _buildDetailRow('Ciudad', orden.ciudadDestino),
-          _buildDetailRow('Dirección', orden.direccionDestino),
-          _buildDetailRow('Observaciones', orden.observacionesDestino),
-        ]),
+        _buildGlassCard(
+          child: _buildDetailCard('Información Principal', [
+            _buildDetailRow('Estado', orden.status.toUpperCase(), highlight: true),
+            _buildDetailRow('Número de Orden', orden.numeroOrden),
+            _buildDetailRow('Número de Expediente', orden.numeroExpediente),
+            _buildDetailRow('Nombre Cliente', orden.nombreCliente),
+            _buildDetailRow('Fecha y Hora', dateFormatter.format(orden.fechaHora)),
+            _buildDetailRow('¿Es Programada?', orden.esProgramada ? 'Sí' : 'No'),
+          ]),
+        ),
+        _buildGlassCard(
+          child: _buildDetailCard('Información de Contacto', [
+            _buildDetailRow('Nombre Asignado', orden.nombreAsignado),
+            _buildDetailRow('Celular', orden.celular),
+          ]),
+        ),
+        _buildGlassCard(
+          child: _buildDetailCard('Detalles del Vehículo/Activo', [
+            _buildDetailRow('Placa', orden.placa),
+            _buildDetailRow('Referencia', orden.referencia),
+            _buildDetailRow('Tipo de Activo', orden.tipoActivo),
+            _buildDetailRow('Marca', orden.marca),
+          ]),
+        ),
+        _buildGlassCard(
+          child: _buildDetailCard('Detalles del Servicio', [
+            _buildDetailRow('Unidad de Negocio', orden.unidadNegocio),
+            _buildDetailRow('Movimiento', orden.movimiento),
+            _buildDetailRow('Servicio', orden.servicio),
+            _buildDetailRow('Modalidad', orden.modalidad),
+          ]),
+        ),
+        _buildGlassCard(
+          child: _buildDetailCard('Origen', [
+            _buildDetailRow('Ciudad', orden.ciudadOrigen),
+            _buildDetailRow('Dirección', orden.direccionOrigen),
+            _buildDetailRow('Observaciones', orden.observacionesOrigen),
+          ]),
+        ),
+        _buildGlassCard(
+          child: _buildDetailCard('Destino', [
+            _buildDetailRow('Ciudad', orden.ciudadDestino),
+            _buildDetailRow('Dirección', orden.direccionDestino),
+            _buildDetailRow('Observaciones', orden.observacionesDestino),
+          ]),
+        ),
       ],
     );
   }
 
-  Widget _buildDetailCard(String title, List<Widget> children) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            const Divider(height: 20, thickness: 1),
-            ...children,
-          ],
+  Widget _buildGlassCard({required Widget child}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16.0),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(16.0),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.2),
+                width: 1.5,
+              ),
+            ),
+            child: child,
+          ),
         ),
       ),
     );
   }
 
+  Widget _buildDetailCard(String title, List<Widget> children) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          const Divider(height: 20, thickness: 1),
+          ...children,
+        ],
+      ),
+    );
+  }
+    // MÉTODO ACTUALIZADO PARA HACER EL NÚMERO CLICKEABLE
   Widget _buildDetailRow(String label, String? value, {bool highlight = false}) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
+    
+    // Si la etiqueta es "Celular", hacemos el valor clickeable
+    bool isPhone = label.toLowerCase() == 'celular';
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
@@ -354,14 +410,26 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         children: [
           Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
           Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
-                color: highlight ? Theme.of(context).primaryColor : Colors.black87,
-              ),
-            ),
+            child: isPhone
+              ? InkWell(
+                  onTap: () => _launchCaller(value),
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.blue.shade800,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                )
+              : Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
+                    color: highlight ? Theme.of(context).primaryColor : Colors.black87,
+                  ),
+                ),
           ),
         ],
       ),
