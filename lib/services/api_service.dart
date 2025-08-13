@@ -53,49 +53,54 @@ class ApiService {
     return _handleResponse(response);
   }
 
-  Future<Orden> getOrderDetails(int orderId) async {
+  // CAMBIO: Acepta un String en lugar de un int
+  Future<Orden> getOrderDetails(String orderNumber) async {
     final token = await AuthService.instance.getToken();
     final response = await http.get(
-      Uri.parse('$baseUrl/v1/orders/$orderId'),
+      Uri.parse('$baseUrl/v1/orders/$orderNumber'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
     final data = _handleResponse(response);
     return Orden.fromJson(data);
   }
 
-  Future<Orden> acceptOrder(int orderId) async {
+  // CAMBIO: Acepta un String en lugar de un int
+  Future<Orden> acceptOrder(String orderNumber) async {
     final token = await AuthService.instance.getToken();
     final response = await http.post(
-      Uri.parse('$baseUrl/v1/orders/$orderId/accept'),
+      Uri.parse('$baseUrl/v1/orders/$orderNumber/accept'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
     final data = _handleResponse(response);
     return Orden.fromJson(data['order']);
   }
   
-  Future<Orden> closeOrder(int orderId) async {
+  // CAMBIO: Acepta un String en lugar de un int
+  Future<Orden> closeOrder(String orderNumber) async {
     final token = await AuthService.instance.getToken();
     final response = await http.post(
-      Uri.parse('$baseUrl/v1/orders/$orderId/close'),
+      Uri.parse('$baseUrl/v1/orders/$orderNumber/close'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
     final data = _handleResponse(response);
     return Orden.fromJson(data['order']);
   }
   
-  Future<Map<String, dynamic>> rejectOrder(int orderId) async {
+  // CAMBIO: Acepta un String en lugar de un int
+  Future<Map<String, dynamic>> rejectOrder(String orderNumber) async {
     final token = await AuthService.instance.getToken();
     final response = await http.post(
-      Uri.parse('$baseUrl/v1/orders/$orderId/reject'),
+      Uri.parse('$baseUrl/v1/orders/$orderNumber/reject'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
     return _handleResponse(response);
   }
 
-  Future<void> updateDetails(int orderId, Map<String, String> data) async {
+  // CAMBIO: Acepta un String en lugar de un int
+  Future<void> updateDetails(String orderNumber, Map<String, String> data) async {
     final token = await AuthService.instance.getToken();
     final response = await http.post(
-      Uri.parse('$baseUrl/v1/orders/$orderId/update-details'),
+      Uri.parse('$baseUrl/v1/orders/$orderNumber/update-details'),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -106,13 +111,13 @@ class ApiService {
     _handleResponse(response);
   }
   
-  Future<List<dynamic>> getUploadedPhotos(int orderId) async {
+  // CAMBIO: Acepta un String en lugar de un int
+  Future<List<dynamic>> getUploadedPhotos(String orderNumber) async {
     final token = await AuthService.instance.getToken();
     final response = await http.get(
-      Uri.parse('$baseUrl/v1/orders/$orderId/photos'),
+      Uri.parse('$baseUrl/v1/orders/$orderNumber/photos'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
-    // Extraemos la lista de la clave "data" si existe, si no, asumimos que es una lista.
     final data = _handleResponse(response);
     if (data is Map<String, dynamic> && data.containsKey('data')) {
       return data['data'] as List<dynamic>;

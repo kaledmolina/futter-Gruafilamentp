@@ -179,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () async {
                 final result = await Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => OrderDetailScreen(orderId: order['id']),
+                    builder: (_) => OrderDetailScreen(orderNumber: order['numero_orden']),
                   ),
                 );
                 if (result == 'refresh' && mounted) {

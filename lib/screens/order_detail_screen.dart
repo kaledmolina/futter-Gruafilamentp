@@ -8,8 +8,8 @@ import '../widgets/app_background.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class OrderDetailScreen extends StatefulWidget {
-  final int orderId;
-  const OrderDetailScreen({super.key, required this.orderId});
+  final String orderNumber;
+  const OrderDetailScreen({super.key, required this.orderNumber});
 
   @override
   _OrderDetailScreenState createState() => _OrderDetailScreenState();
@@ -34,7 +34,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       _error = null;
     });
     try {
-      final order = await _apiService.getOrderDetails(widget.orderId);
+      final order = await _apiService.getOrderDetails(widget.orderNumber);
       if (mounted) {
         setState(() {
           _currentOrder = order;
@@ -96,7 +96,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _takeOrder() async {
     setState(() => _isLoading = true);
     try {
-      final updatedOrder = await _apiService.acceptOrder(widget.orderId);
+      final updatedOrder = await _apiService.acceptOrder(widget.orderNumber);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden tomada exitosamente.'), backgroundColor: Colors.green),
@@ -120,7 +120,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _rejectOrder() async {
     setState(() => _isLoading = true);
     try {
-      await _apiService.rejectOrder(widget.orderId);
+      await _apiService.rejectOrder(widget.orderNumber);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden rechazada.'), backgroundColor: Colors.orange),
@@ -141,7 +141,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _closeOrder() async {
     setState(() => _isLoading = true);
     try {
-      final updatedOrder = await _apiService.closeOrder(widget.orderId);
+      final updatedOrder = await _apiService.closeOrder(widget.orderNumber);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden cerrada exitosamente.'), backgroundColor: Colors.blue),
@@ -175,7 +175,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         child: Scaffold(
           backgroundColor: Colors.transparent,
           appBar: AppBar(
-            title: Text('Detalles de Orden #${widget.orderId}'),
+            title: Text('Detalles de Orden #${widget.orderNumber}'),
             backgroundColor: Colors.transparent,
             elevation: 0,
             foregroundColor: Colors.black87,

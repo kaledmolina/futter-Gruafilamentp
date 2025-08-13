@@ -71,7 +71,7 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
   Future<void> _loadPhotos() async {
     setState(() => _isLoading = true);
     try {
-      final uploaded = await ApiService().getUploadedPhotos(widget.orden.id);
+      final uploaded = await ApiService().getUploadedPhotos(widget.orden.numeroOrden);
       final pending = await DatabaseService.instance.getPendingPhotosForOrder(widget.orden.id);
 
       final List<PhotoDisplay> combinedList = [];
@@ -127,7 +127,7 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await ApiService().updateDetails(widget.orden.id, {
+      await ApiService().updateDetails(widget.orden.numeroOrden, {
         'celular': _celularController.text,
         'observaciones_origen': _obsOrigenController.text,
         'observaciones_destino': _obsDestinoController.text,
