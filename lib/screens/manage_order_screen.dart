@@ -102,22 +102,38 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
   }
 
   Future<void> _pickImage() async {
-    if (_galleryPhotos.length >= 12) {
+    final int currentCount = _galleryPhotos.length;
+    if (currentCount >= 12) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pueden subir más de 12 fotos.')),
+        const SnackBar(content: Text('Ya has alcanzado el límite de 12 fotos.')),
       );
       return;
     }
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
 
-    if (pickedFile != null) {
+    final picker = ImagePicker();
+    // Usa pickMultiImage para seleccionar varias fotos a la vez
+    final pickedFiles = await picker.pickMultiImage(imageQuality: 80);
+
+    if (pickedFiles.isNotEmpty) {
+      int remainingSlots = 12 - currentCount;
+      if (pickedFiles.length > remainingSlots) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Solo puedes añadir $remainingSlots fotos más. Se han añadido las primeras $remainingSlots.')),
+        );
+      }
+
+      final filesToProcess = pickedFiles.take(remainingSlots);
       final appDir = await getApplicationDocumentsDirectory();
-      final fileName = p.basename(pickedFile.path);
-      final savedImage = await File(pickedFile.path).copy('${appDir.path}/$fileName');
+      
+      List<File> newImages = [];
+      for (var pickedFile in filesToProcess) {
+        final fileName = p.basename(pickedFile.path);
+        final savedImage = await File(pickedFile.path).copy('${appDir.path}/$fileName');
+        newImages.add(savedImage);
+      }
       
       setState(() {
-        _galleryPhotos.add(PhotoDisplay(path: savedImage.path, status: PhotoStatusType.local));
+        _galleryPhotos.addAll(newImages.map((file) => PhotoDisplay(path: file.path, status: PhotoStatusType.local)));
       });
     }
   }
