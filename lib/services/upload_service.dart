@@ -45,12 +45,13 @@ class UploadService {
     for (var photo in pendingPhotos) {
       final photoId = photo['id'] as int;
       final photoPath = photo['image_path'] as String;
-      final orderId = photo['order_id'] as int;
+      final orderNumber = photo['order_number'] as String;
+
 
       _uploadStatusController.add(PhotoDisplay(localId: photoId, path: photoPath, status: PhotoStatusType.uploading));
       
       try {
-        final success = await _uploadPhoto(orderId, photoPath);
+        final success = await _uploadPhoto(orderNumber, photoPath);
         if (success) {
           await db.deletePendingPhoto(photoId);
           _uploadStatusController.add(PhotoDisplay(localId: photoId, path: photoPath, status: PhotoStatusType.uploaded));
@@ -64,11 +65,11 @@ class UploadService {
     _isSyncing = false;
   }
   
-  Future<bool> _uploadPhoto(int orderId, String imagePath) async {
+  Future<bool> _uploadPhoto(String orderNumber, String imagePath) async {
     final token = await AuthService.instance.getToken();
     if (token == null) return false;
 
-    final uri = Uri.parse('${ApiService.baseUrl}/v1/orders/$orderId/upload-photo');
+    final uri = Uri.parse('${ApiService.baseUrl}/v1/orders/$orderNumber/upload-photo');
     final request = http.MultipartRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json'

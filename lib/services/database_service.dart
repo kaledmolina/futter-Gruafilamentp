@@ -24,15 +24,16 @@ class DatabaseService {
     await db.execute('''
       CREATE TABLE pending_photos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        order_id INTEGER NOT NULL,
+        order_number TEXT NOT NULL,
         image_path TEXT NOT NULL
       )
     ''');
   }
 
-  Future<void> addPendingPhoto(int orderId, String imagePath) async {
+  // CAMBIO: Ahora recibe el número de orden
+  Future<void> addPendingPhoto(String orderNumber, String imagePath) async {
     final db = await instance.database;
-    await db.insert('pending_photos', {'order_id': orderId, 'image_path': imagePath});
+    await db.insert('pending_photos', {'order_number': orderNumber, 'image_path': imagePath});
   }
 
   Future<List<Map<String, dynamic>>> getPendingPhotos() async {
@@ -40,10 +41,10 @@ class DatabaseService {
     return await db.query('pending_photos', orderBy: 'id');
   }
   
-  // NUEVO: Método para obtener fotos pendientes para una orden específica
-  Future<List<Map<String, dynamic>>> getPendingPhotosForOrder(int orderId) async {
+  // CAMBIO: Ahora busca por número de orden
+  Future<List<Map<String, dynamic>>> getPendingPhotosForOrder(String orderNumber) async {
     final db = await instance.database;
-    return await db.query('pending_photos', where: 'order_id = ?', whereArgs: [orderId]);
+    return await db.query('pending_photos', where: 'order_number = ?', whereArgs: [orderNumber]);
   }
 
   Future<void> deletePendingPhoto(int id) async {

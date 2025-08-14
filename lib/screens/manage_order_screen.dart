@@ -72,7 +72,7 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
     setState(() => _isLoading = true);
     try {
       final uploaded = await ApiService().getUploadedPhotos(widget.orden.numeroOrden);
-      final pending = await DatabaseService.instance.getPendingPhotosForOrder(widget.orden.id);
+      final pending = await DatabaseService.instance.getPendingPhotosForOrder(widget.orden.numeroOrden);
 
       final List<PhotoDisplay> combinedList = [];
       combinedList.addAll(uploaded.map((p) => PhotoDisplay(
@@ -135,7 +135,7 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
 
       final newPhotos = _galleryPhotos.where((p) => p.status == PhotoStatusType.local && p.localId == null).toList();
       for (var photo in newPhotos) {
-        await DatabaseService.instance.addPendingPhoto(widget.orden.id, photo.path);
+        await DatabaseService.instance.addPendingPhoto(widget.orden.numeroOrden, photo.path);
       }
       
       UploadService.instance.syncPendingUploads();
@@ -322,5 +322,3 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
     );
   }
 }
-
-
