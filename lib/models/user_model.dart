@@ -11,7 +11,6 @@ class Vehicle {
   final String? mantenimientoPreventivoTaller;
   final DateTime? fechaMantenimiento;
   final DateTime? fechaUltimoAceite;
-  final String? tipoVehiculo; // Campo añadido
 
   Vehicle({
     required this.id,
@@ -24,7 +23,6 @@ class Vehicle {
     this.mantenimientoPreventivoTaller,
     this.fechaMantenimiento,
     this.fechaUltimoAceite,
-    this.tipoVehiculo,
   });
 
   factory Vehicle.fromJson(Map<String, dynamic> json) {
@@ -39,7 +37,6 @@ class Vehicle {
       mantenimientoPreventivoTaller: json['mantenimiento_preventivo_taller'],
       fechaMantenimiento: json['fecha_mantenimiento'] != null ? DateTime.parse(json['fecha_mantenimiento']) : null,
       fechaUltimoAceite: json['fecha_ultimo_aceite'] != null ? DateTime.parse(json['fecha_ultimo_aceite']) : null,
-      tipoVehiculo: json['tipo_vehiculo'],
     );
   }
 }
