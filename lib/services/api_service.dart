@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 import '../models/orden_model.dart';
+import '../models/user_model.dart';
 
 class ApiService {
   static const String baseUrl = 'https://gruap.kaledcloud.tech/api';
@@ -123,6 +124,32 @@ class ApiService {
       return data['data'] as List<dynamic>;
     }
     return data as List<dynamic>;
+  }
+
+  // NUEVO: Método para enviar la inspección
+  Future<void> submitInspection(Map<String, dynamic> data) async {
+    final token = await AuthService.instance.getToken();
+    final response = await http.post(
+      Uri.parse('$baseUrl/v1/inspections'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    );
+    _handleResponse(response);
+  }
+
+  // NUEVO: Método para obtener el perfil completo del usuario
+  Future<User> getProfile() async {
+    final token = await AuthService.instance.getToken();
+    final response = await http.get(
+      Uri.parse('$baseUrl/v1/profile'),
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+    );
+    final data = _handleResponse(response);
+    return User.fromJson(data);
   }
 
   dynamic _handleResponse(http.Response response) {
