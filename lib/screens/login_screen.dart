@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import 'home_screen.dart';
+import 'preoperational_screen.dart';
 import '../widgets/app_background.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -40,20 +41,41 @@ class _LoginScreenState extends State<LoginScreen> {
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );
-    
+
     if (success && mounted) {
       await NotificationService.instance.requestPermissionAndRegisterToken();
-      
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+
+      try {
+        final completed = await ApiService().hasCompletedInspectionToday();
+        if (completed) {
+          // ✅ Ya hizo la inspección, va al Home
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+          );
+        } else {
+          // 🚫 No la hizo, mandarlo primero a la Inspección
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const PreoperationalScreen()),
+          );
+        }
+      } catch (e) {
+        // Si hay error, muestra aviso
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error verificando inspección. Intenta nuevamente.'),
+            ),
+          );
+        }
+      }
     } else {
-       if(mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text('Credenciales incorrectas o error de conexión.')),
-         );
-       }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Credenciales incorrectas o error de conexión.')),
+        );
+      }
     }
+
     if (mounted) {
       setState(() => _isLoading = false);
     }
@@ -75,21 +97,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Text(
                       'Bienvenido',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     _buildStatusChip(),
                     const SizedBox(height: 24),
                     TextField(
                       controller: _emailController,
-                      decoration: const InputDecoration(labelText: 'Correo Electrónico', border: UnderlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Correo Electrónico',
+                        border: UnderlineInputBorder(),
+                      ),
                       keyboardType: TextInputType.emailAddress,
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: _passwordController,
                       obscureText: true,
-                      decoration: const InputDecoration(labelText: 'Contraseña', border: UnderlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Contraseña',
+                        border: UnderlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 32),
                     _isLoading
@@ -97,7 +127,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         : FilledButton(
                             onPressed: _login,
                             style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 50,
+                                vertical: 15,
+                              ),
                             ),
                             child: const Text('Ingresar'),
                           ),
@@ -114,7 +147,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildStatusChip() {
     if (_isConnected == null) {
       return const Chip(
-        avatar: SizedBox(height: 15, width: 15, child: CircularProgressIndicator(strokeWidth: 2)),
+        avatar: SizedBox(
+          height: 15,
+          width: 15,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
         label: Text('Verificando conexión...'),
       );
     }
@@ -128,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return const Chip(
         avatar: Icon(Icons.error, color: Colors.red, size: 18),
         label: Text('Error de conexión'),
-         backgroundColor: Color.fromARGB(255, 255, 230, 228),
+        backgroundColor: Color.fromARGB(255, 255, 230, 228),
       );
     }
   }

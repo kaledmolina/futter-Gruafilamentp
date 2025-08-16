@@ -151,6 +151,15 @@ class ApiService {
     final data = _handleResponse(response);
     return User.fromJson(data);
   }
+  Future<bool> hasCompletedInspectionToday() async {
+    final token = await AuthService.instance.getToken();
+    final response = await http.get(
+      Uri.parse('$baseUrl/v1/inspections/check-today'),
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+    );
+    final data = _handleResponse(response);
+    return data['completed_today'] ?? false;
+  }
 
   dynamic _handleResponse(http.Response response) {
     final body = jsonDecode(response.body);

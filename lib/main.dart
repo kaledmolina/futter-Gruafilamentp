@@ -10,7 +10,8 @@ import 'screens/home_screen.dart';
 import 'services/auth_service.dart';
 import 'firebase_options.dart';
 import 'services/upload_service.dart';
-import 'widgets/app_background.dart'; // Importar el nuevo widget
+import 'widgets/app_background.dart';
+import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,7 +62,7 @@ class MyApp extends StatelessWidget {
             );
           }
           if (snapshot.hasData && snapshot.data == true) {
-            return const HomeScreen();
+            return const SplashScreen();
           }
           return const LoginScreen();
         },
