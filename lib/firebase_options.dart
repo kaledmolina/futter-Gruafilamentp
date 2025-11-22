@@ -50,21 +50,21 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAFB-Gq862N7EC2G9VkRX7TCBB6VzMtWf0',
-    appId: '1:995900884682:web:482f6aa7e08ffe29c25633',
-    messagingSenderId: '995900884682',
-    projectId: 'grua2kaled',
-    authDomain: 'grua2kaled.firebaseapp.com',
-    storageBucket: 'grua2kaled.firebasestorage.app',
-    measurementId: 'G-B7W28X946J',
+    apiKey: 'AIzaSyCxchFuq5xP4qtl3onS07BVe0U4RycMeEM',
+    appId: '1:326040258991:web:28537fd31f00a650b8075a',
+    messagingSenderId: '326040258991',
+    projectId: 'filamentgrua',
+    authDomain: 'filamentgrua.firebaseapp.com',
+    storageBucket: 'filamentgrua.firebasestorage.app',
+    measurementId: 'G-W2F4C92XXK',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCx6s_MZmKrDxRosqSL7WK5unbYicWJCuM',
-    appId: '1:995900884682:android:b7a70f1cb3162b0cc25633',
-    messagingSenderId: '995900884682',
-    projectId: 'grua2kaled',
-    storageBucket: 'grua2kaled.firebasestorage.app',
+    apiKey: 'AIzaSyDUrKKvgB7g3AMpKeCYbCec8IABb5kq2Zo',
+    appId: '1:326040258991:android:71a020f305ac485db8075a',
+    messagingSenderId: '326040258991',
+    projectId: 'filamentgrua',
+    storageBucket: 'filamentgrua.firebasestorage.app',
   );
 
 }

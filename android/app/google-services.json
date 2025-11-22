@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "995900884682",
-    "project_id": "grua2kaled",
-    "storage_bucket": "grua2kaled.firebasestorage.app"
+    "project_number": "326040258991",
+    "project_id": "filamentgrua",
+    "storage_bucket": "filamentgrua.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:995900884682:android:b7a70f1cb3162b0cc25633",
+        "mobilesdk_app_id": "1:326040258991:android:71a020f305ac485db8075a",
         "android_client_info": {
-          "package_name": "com.company.grua"
+          "package_name": "com.example.myapp"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCx6s_MZmKrDxRosqSL7WK5unbYicWJCuM"
+          "current_key": "AIzaSyDUrKKvgB7g3AMpKeCYbCec8IABb5kq2Zo"
         }
       ],
       "services": {
