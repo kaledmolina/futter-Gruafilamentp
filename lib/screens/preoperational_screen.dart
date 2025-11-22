@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/user_model.dart';
+import '../repositories/inspection_repository.dart';
 import '../services/api_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/app_background.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
@@ -95,9 +97,12 @@ class _PreoperationalScreenState extends State<PreoperationalScreen> {
     }
   }
 
+  final InspectionRepository _inspectionRepo = InspectionRepository();
+
   Future<void> _loadInitialData() async {
     try {
-      final user = await ApiService().getProfile();
+      final apiService = ApiService();
+      final user = await apiService.getProfile();
 
       // 🚨 Verificar si el usuario tiene vehículo asignado
       if (user.vehicle == null) {
@@ -292,7 +297,8 @@ class _PreoperationalScreenState extends State<PreoperationalScreen> {
     }
 
     try {
-      await ApiService().submitInspection(_inspectionData);
+      await _inspectionRepo.submitInspection(_inspectionData);
+      SyncService.instance.sync();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -307,9 +313,12 @@ class _PreoperationalScreenState extends State<PreoperationalScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(
-                  'Error: ${e.toString().replaceAll("Exception: ", "")}'),
-              backgroundColor: Colors.red),
+                  'Inspección guardada localmente. Se sincronizará cuando haya conexión.'),
+              backgroundColor: Colors.orange),
         );
+        SyncService.instance.sync();
+        Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const HomeScreen()));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

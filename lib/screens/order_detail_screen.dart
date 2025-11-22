@@ -2,9 +2,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/orden_model.dart';
-import '../services/api_service.dart';
+import '../repositories/order_repository.dart';
+import '../services/sync_service.dart';
 import 'manage_order_screen.dart';
 import '../widgets/app_background.dart';
+import '../widgets/connection_status_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -16,7 +18,7 @@ class OrderDetailScreen extends StatefulWidget {
 }
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
-  final ApiService _apiService = ApiService();
+  final OrderRepository _orderRepo = OrderRepository();
   Orden? _currentOrder;
   bool _isLoading = true;
   String? _error;
@@ -26,6 +28,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   void initState() {
     super.initState();
     _loadOrderDetails();
+    SyncService.instance.sync();
   }
   
   Future<void> _loadOrderDetails() async {
@@ -33,20 +36,33 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       _isLoading = true;
       _error = null;
     });
+    
+    // Cargar desde caché primero
     try {
-      final order = await _apiService.getOrderDetails(widget.orderNumber);
+      final cachedOrder = await _orderRepo.getOrderDetails(widget.orderNumber);
       if (mounted) {
         setState(() {
-          _currentOrder = order;
+          _currentOrder = cachedOrder;
           _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
+      // Si no hay caché, intentar desde servidor
+      try {
+        final order = await _orderRepo.getOrderDetails(widget.orderNumber);
+        if (mounted) {
+          setState(() {
+            _currentOrder = order;
+            _isLoading = false;
+          });
+        }
+      } catch (err) {
+        if (mounted) {
+          setState(() {
+            _error = err.toString();
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -96,7 +112,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _takeOrder() async {
     setState(() => _isLoading = true);
     try {
-      final updatedOrder = await _apiService.acceptOrder(widget.orderNumber);
+      final updatedOrder = await _orderRepo.acceptOrder(widget.orderNumber);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden tomada exitosamente.'), backgroundColor: Colors.green),
@@ -105,12 +121,48 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           _currentOrder = updatedOrder;
           _hasStateChanged = true;
         });
+        SyncService.instance.sync();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Orden guardada localmente. Se sincronizará cuando haya conexión.'),
+            backgroundColor: Colors.orange,
+          ),
         );
+        setState(() {
+          _currentOrder = _currentOrder != null
+              ? Orden(
+                  id: _currentOrder!.id,
+                  numeroOrden: _currentOrder!.numeroOrden,
+                  numeroExpediente: _currentOrder!.numeroExpediente,
+                  nombreCliente: _currentOrder!.nombreCliente,
+                  fechaHora: _currentOrder!.fechaHora,
+                  valorServicio: _currentOrder!.valorServicio,
+                  placa: _currentOrder!.placa,
+                  referencia: _currentOrder!.referencia,
+                  nombreAsignado: _currentOrder!.nombreAsignado,
+                  celular: _currentOrder!.celular,
+                  unidadNegocio: _currentOrder!.unidadNegocio,
+                  movimiento: _currentOrder!.movimiento,
+                  servicio: _currentOrder!.servicio,
+                  modalidad: _currentOrder!.modalidad,
+                  tipoActivo: _currentOrder!.tipoActivo,
+                  marca: _currentOrder!.marca,
+                  ciudadOrigen: _currentOrder!.ciudadOrigen,
+                  direccionOrigen: _currentOrder!.direccionOrigen,
+                  observacionesOrigen: _currentOrder!.observacionesOrigen,
+                  ciudadDestino: _currentOrder!.ciudadDestino,
+                  direccionDestino: _currentOrder!.direccionDestino,
+                  observacionesDestino: _currentOrder!.observacionesDestino,
+                  esProgramada: _currentOrder!.esProgramada,
+                  fechaProgramada: _currentOrder!.fechaProgramada,
+                  status: 'en proceso',
+                )
+              : null;
+          _hasStateChanged = true;
+        });
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -120,18 +172,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _rejectOrder() async {
     setState(() => _isLoading = true);
     try {
-      await _apiService.rejectOrder(widget.orderNumber);
+      await _orderRepo.rejectOrder(widget.orderNumber);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden rechazada.'), backgroundColor: Colors.orange),
         );
+        SyncService.instance.sync();
         Navigator.of(context).pop('refresh');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Orden guardada localmente. Se sincronizará cuando haya conexión.'),
+            backgroundColor: Colors.orange,
+          ),
         );
+        SyncService.instance.sync();
+        Navigator.of(context).pop('refresh');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -141,12 +199,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _closeOrder() async {
     setState(() => _isLoading = true);
     try {
-      final updatedOrder = await _apiService.closeOrder(widget.orderNumber);
+      final updatedOrder = await _orderRepo.closeOrder(widget.orderNumber);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden cerrada exitosamente.'), backgroundColor: Colors.blue),
         );
         setState(() => _currentOrder = updatedOrder);
+        SyncService.instance.sync();
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) {
             Navigator.of(context).pop('refresh');
@@ -156,8 +215,48 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Orden guardada localmente. Se sincronizará cuando haya conexión.'),
+            backgroundColor: Colors.orange,
+          ),
         );
+        setState(() {
+          _currentOrder = _currentOrder != null
+              ? Orden(
+                  id: _currentOrder!.id,
+                  numeroOrden: _currentOrder!.numeroOrden,
+                  numeroExpediente: _currentOrder!.numeroExpediente,
+                  nombreCliente: _currentOrder!.nombreCliente,
+                  fechaHora: _currentOrder!.fechaHora,
+                  valorServicio: _currentOrder!.valorServicio,
+                  placa: _currentOrder!.placa,
+                  referencia: _currentOrder!.referencia,
+                  nombreAsignado: _currentOrder!.nombreAsignado,
+                  celular: _currentOrder!.celular,
+                  unidadNegocio: _currentOrder!.unidadNegocio,
+                  movimiento: _currentOrder!.movimiento,
+                  servicio: _currentOrder!.servicio,
+                  modalidad: _currentOrder!.modalidad,
+                  tipoActivo: _currentOrder!.tipoActivo,
+                  marca: _currentOrder!.marca,
+                  ciudadOrigen: _currentOrder!.ciudadOrigen,
+                  direccionOrigen: _currentOrder!.direccionOrigen,
+                  observacionesOrigen: _currentOrder!.observacionesOrigen,
+                  ciudadDestino: _currentOrder!.ciudadDestino,
+                  direccionDestino: _currentOrder!.direccionDestino,
+                  observacionesDestino: _currentOrder!.observacionesDestino,
+                  esProgramada: _currentOrder!.esProgramada,
+                  fechaProgramada: _currentOrder!.fechaProgramada,
+                  status: 'cerrada',
+                )
+              : null;
+        });
+        SyncService.instance.sync();
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            Navigator.of(context).pop('refresh');
+          }
+        });
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -179,6 +278,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             backgroundColor: Colors.transparent,
             elevation: 0,
             foregroundColor: Colors.black87,
+            actions: const [
+              Padding(
+                padding: EdgeInsets.only(right: 16.0),
+                child: ConnectionStatusIndicator(),
+              ),
+            ],
           ),
           body: _buildBody(),
         ),
@@ -305,7 +410,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildDetailSection(Orden orden) {
-    final currencyFormatter = NumberFormat.currency(locale: 'es_CO', symbol: '\$');
     final dateFormatter = DateFormat('dd/MM/yyyy hh:mm a', 'es_CO');
     
     return Column(

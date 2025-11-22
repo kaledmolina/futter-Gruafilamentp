@@ -10,6 +10,7 @@ import 'screens/home_screen.dart';
 import 'services/auth_service.dart';
 import 'firebase_options.dart';
 import 'services/upload_service.dart';
+import 'services/sync_service.dart';
 import 'widgets/app_background.dart';
 import 'screens/splash_screen.dart';
 
@@ -26,7 +27,8 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await NotificationService.instance.initialize();
-  UploadService.instance.start(); 
+  UploadService.instance.start();
+  SyncService.instance.start();
   runApp(const MyApp());
 }
 
