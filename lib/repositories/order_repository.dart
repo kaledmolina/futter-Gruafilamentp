@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../models/orden_model.dart';
 import '../services/api_service.dart';
 import '../services/database_service.dart';
+import '../services/sync_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 class OrderRepository {
@@ -49,7 +50,84 @@ class OrderRepository {
   }
 
   Future<Orden> acceptOrder(String orderNumber) async {
+    // Validar si ya hay una orden en proceso (excluyendo la actual)
+    final ordersInProcess = await _dbService.getOrdersInProcess();
+    
+    // Obtener todas las operaciones pendientes
+    final allPendingOps = await _dbService.getPendingOperations();
+    
+    // Obtener las órdenes que tienen operaciones pendientes de "close" (ya están siendo cerradas)
+    final ordersBeingClosed = allPendingOps
+        .where((op) => op['operation_type'] == 'close')
+        .map((op) => op['order_number'] as String)
+        .toSet();
+    
+    // Filtrar órdenes en proceso excluyendo:
+    // 1. La orden actual
+    // 2. Las órdenes que tienen una operación pendiente de "close" (ya están siendo cerradas)
+    final otherOrdersInProcess = ordersInProcess
+        .where((order) {
+          final orderNum = order['numero_orden'] as String;
+          return orderNum != orderNumber && !ordersBeingClosed.contains(orderNum);
+        })
+        .toList();
+    
+    if (otherOrdersInProcess.isNotEmpty) {
+      throw Exception('Ya tienes una orden de servicio en proceso. Debes finalizarla antes de iniciar otra.');
+    }
+    
+    // Validar si hay operaciones pendientes de aceptar para otras órdenes
+    // (excluyendo las que están siendo cerradas)
+    final otherAcceptOps = allPendingOps
+        .where((op) => 
+            op['operation_type'] == 'accept' && 
+            op['order_number'] != orderNumber &&
+            !ordersBeingClosed.contains(op['order_number'] as String))
+        .toList();
+    
+    if (otherAcceptOps.isNotEmpty) {
+      throw Exception('Ya tienes una orden de servicio en proceso. Debes finalizarla antes de iniciar otra.');
+    }
+    
     final hasConnection = await _hasConnection();
+    
+    // Verificar si ya existe una operación pendiente de aceptar para esta orden
+    final existingOps = await _dbService.getPendingOperationsForOrder(orderNumber);
+    final hasAcceptPending = existingOps.any((op) => op['operation_type'] == 'accept');
+    
+    if (hasAcceptPending) {
+      // Si ya hay una operación pendiente, retornar orden con estado actualizado localmente
+      final localOrder = await _getOrderFromLocal(orderNumber);
+      if (localOrder != null) {
+        return Orden(
+          id: localOrder.id,
+          numeroOrden: localOrder.numeroOrden,
+          numeroExpediente: localOrder.numeroExpediente,
+          nombreCliente: localOrder.nombreCliente,
+          fechaHora: localOrder.fechaHora,
+          valorServicio: localOrder.valorServicio,
+          placa: localOrder.placa,
+          referencia: localOrder.referencia,
+          nombreAsignado: localOrder.nombreAsignado,
+          celular: localOrder.celular,
+          unidadNegocio: localOrder.unidadNegocio,
+          movimiento: localOrder.movimiento,
+          servicio: localOrder.servicio,
+          modalidad: localOrder.modalidad,
+          tipoActivo: localOrder.tipoActivo,
+          marca: localOrder.marca,
+          ciudadOrigen: localOrder.ciudadOrigen,
+          direccionOrigen: localOrder.direccionOrigen,
+          observacionesOrigen: localOrder.observacionesOrigen,
+          ciudadDestino: localOrder.ciudadDestino,
+          direccionDestino: localOrder.direccionDestino,
+          observacionesDestino: localOrder.observacionesDestino,
+          esProgramada: localOrder.esProgramada,
+          fechaProgramada: localOrder.fechaProgramada,
+          status: 'en proceso',
+        );
+      }
+    }
     
     if (hasConnection) {
       try {
@@ -60,47 +138,64 @@ class OrderRepository {
         );
         return order;
       } catch (e) {
+        // Actualizar estado local inmediatamente
+        await _updateLocalOrderStatus(orderNumber, 'en proceso');
         await _queueOperation('accept', orderNumber, {});
         rethrow;
       }
     }
     
+    // Actualizar estado local inmediatamente antes de encolar
+    await _updateLocalOrderStatus(orderNumber, 'en proceso');
     await _queueOperation('accept', orderNumber, {});
+    
     final localOrder = await _getOrderFromLocal(orderNumber);
     if (localOrder != null) {
-      return Orden(
-        id: localOrder.id,
-        numeroOrden: localOrder.numeroOrden,
-        numeroExpediente: localOrder.numeroExpediente,
-        nombreCliente: localOrder.nombreCliente,
-        fechaHora: localOrder.fechaHora,
-        valorServicio: localOrder.valorServicio,
-        placa: localOrder.placa,
-        referencia: localOrder.referencia,
-        nombreAsignado: localOrder.nombreAsignado,
-        celular: localOrder.celular,
-        unidadNegocio: localOrder.unidadNegocio,
-        movimiento: localOrder.movimiento,
-        servicio: localOrder.servicio,
-        modalidad: localOrder.modalidad,
-        tipoActivo: localOrder.tipoActivo,
-        marca: localOrder.marca,
-        ciudadOrigen: localOrder.ciudadOrigen,
-        direccionOrigen: localOrder.direccionOrigen,
-        observacionesOrigen: localOrder.observacionesOrigen,
-        ciudadDestino: localOrder.ciudadDestino,
-        direccionDestino: localOrder.direccionDestino,
-        observacionesDestino: localOrder.observacionesDestino,
-        esProgramada: localOrder.esProgramada,
-        fechaProgramada: localOrder.fechaProgramada,
-        status: 'en proceso',
-      );
+      return localOrder;
     }
     throw Exception('Orden no encontrada');
   }
 
   Future<Orden> closeOrder(String orderNumber) async {
     final hasConnection = await _hasConnection();
+    
+    // Verificar si ya existe una operación pendiente de cerrar
+    final existingOps = await _dbService.getPendingOperationsForOrder(orderNumber);
+    final hasClosePending = existingOps.any((op) => op['operation_type'] == 'close');
+    
+    if (hasClosePending) {
+      // Si ya hay una operación pendiente, retornar orden con estado actualizado localmente
+      final localOrder = await _getOrderFromLocal(orderNumber);
+      if (localOrder != null) {
+        return Orden(
+          id: localOrder.id,
+          numeroOrden: localOrder.numeroOrden,
+          numeroExpediente: localOrder.numeroExpediente,
+          nombreCliente: localOrder.nombreCliente,
+          fechaHora: localOrder.fechaHora,
+          valorServicio: localOrder.valorServicio,
+          placa: localOrder.placa,
+          referencia: localOrder.referencia,
+          nombreAsignado: localOrder.nombreAsignado,
+          celular: localOrder.celular,
+          unidadNegocio: localOrder.unidadNegocio,
+          movimiento: localOrder.movimiento,
+          servicio: localOrder.servicio,
+          modalidad: localOrder.modalidad,
+          tipoActivo: localOrder.tipoActivo,
+          marca: localOrder.marca,
+          ciudadOrigen: localOrder.ciudadOrigen,
+          direccionOrigen: localOrder.direccionOrigen,
+          observacionesOrigen: localOrder.observacionesOrigen,
+          ciudadDestino: localOrder.ciudadDestino,
+          direccionDestino: localOrder.direccionDestino,
+          observacionesDestino: localOrder.observacionesDestino,
+          esProgramada: localOrder.esProgramada,
+          fechaProgramada: localOrder.fechaProgramada,
+          status: 'cerrada',
+        );
+      }
+    }
     
     if (hasConnection) {
       try {
@@ -111,41 +206,20 @@ class OrderRepository {
         );
         return order;
       } catch (e) {
+        // Actualizar estado local inmediatamente
+        await _updateLocalOrderStatus(orderNumber, 'cerrada');
         await _queueOperation('close', orderNumber, {});
         rethrow;
       }
     }
     
+    // Actualizar estado local inmediatamente antes de encolar
+    await _updateLocalOrderStatus(orderNumber, 'cerrada');
     await _queueOperation('close', orderNumber, {});
+    
     final localOrder = await _getOrderFromLocal(orderNumber);
     if (localOrder != null) {
-      return Orden(
-        id: localOrder.id,
-        numeroOrden: localOrder.numeroOrden,
-        numeroExpediente: localOrder.numeroExpediente,
-        nombreCliente: localOrder.nombreCliente,
-        fechaHora: localOrder.fechaHora,
-        valorServicio: localOrder.valorServicio,
-        placa: localOrder.placa,
-        referencia: localOrder.referencia,
-        nombreAsignado: localOrder.nombreAsignado,
-        celular: localOrder.celular,
-        unidadNegocio: localOrder.unidadNegocio,
-        movimiento: localOrder.movimiento,
-        servicio: localOrder.servicio,
-        modalidad: localOrder.modalidad,
-        tipoActivo: localOrder.tipoActivo,
-        marca: localOrder.marca,
-        ciudadOrigen: localOrder.ciudadOrigen,
-        direccionOrigen: localOrder.direccionOrigen,
-        observacionesOrigen: localOrder.observacionesOrigen,
-        ciudadDestino: localOrder.ciudadDestino,
-        direccionDestino: localOrder.direccionDestino,
-        observacionesDestino: localOrder.observacionesDestino,
-        esProgramada: localOrder.esProgramada,
-        fechaProgramada: localOrder.fechaProgramada,
-        status: 'cerrada',
-      );
+      return localOrder;
     }
     throw Exception('Orden no encontrada');
   }
@@ -229,12 +303,24 @@ class OrderRepository {
     await _dbService.updateOrder(orderNumber, updates);
   }
 
+  Future<void> _updateLocalOrderStatus(String orderNumber, String newStatus) async {
+    await _dbService.updateOrder(orderNumber, {'status': newStatus});
+  }
+
   Future<void> _queueOperation(String type, String orderNumber, Map<String, dynamic> data) async {
-    await _dbService.addPendingOperation(
-      operationType: type,
-      orderNumber: orderNumber,
-      operationData: data,
-    );
+    // Verificar si ya existe una operación del mismo tipo para esta orden
+    final existingOps = await _dbService.getPendingOperationsForOrder(orderNumber);
+    final hasDuplicate = existingOps.any((op) => op['operation_type'] == type);
+    
+    if (!hasDuplicate) {
+      await _dbService.addPendingOperation(
+        operationType: type,
+        orderNumber: orderNumber,
+        operationData: data,
+      );
+      // Notificar que se agregó una nueva operación pendiente
+      SyncService.instance.notifyPendingOperationChange(orderNumber);
+    }
   }
 
   Future<int> _findPendingOperation(String type, String orderNumber) async {

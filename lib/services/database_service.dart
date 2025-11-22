@@ -284,6 +284,16 @@ class DatabaseService {
     return await db.query('orders', orderBy: 'fecha_hora DESC');
   }
 
+  Future<List<Map<String, dynamic>>> getOrdersInProcess() async {
+    final db = await database;
+    return await db.query(
+      'orders',
+      where: 'status = ?',
+      whereArgs: ['en proceso'],
+      orderBy: 'fecha_hora DESC',
+    );
+  }
+
   Future<Map<String, dynamic>?> getOrderByNumber(String numeroOrden) async {
     final db = await database;
     final results = await db.query(

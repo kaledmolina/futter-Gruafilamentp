@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/orden_model.dart';
 import '../repositories/order_repository.dart';
 import '../services/sync_service.dart';
+import '../services/database_service.dart';
 import 'manage_order_screen.dart';
 import '../widgets/app_background.dart';
 import '../widgets/connection_status_indicator.dart';
@@ -110,59 +111,200 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _takeOrder() async {
+    if (_isLoading) return; // Prevenir múltiples llamadas
+    
     setState(() => _isLoading = true);
+    
     try {
+      // Validar si ya hay una orden en proceso antes de aceptar
+      final ordersInProcess = await DatabaseService.instance.getOrdersInProcess();
+      
+      // Obtener todas las operaciones pendientes
+      final allPendingOps = await DatabaseService.instance.getPendingOperations();
+      
+      // Obtener las órdenes que tienen operaciones pendientes de "close" (ya están siendo cerradas)
+      final ordersBeingClosed = allPendingOps
+          .where((op) => op['operation_type'] == 'close')
+          .map((op) => op['order_number'] as String)
+          .toSet();
+      
+      // Filtrar órdenes en proceso excluyendo:
+      // 1. La orden actual
+      // 2. Las órdenes que tienen una operación pendiente de "close" (ya están siendo cerradas)
+      final otherOrdersInProcess = ordersInProcess
+          .where((order) {
+            final orderNum = order['numero_orden'] as String;
+            return orderNum != widget.orderNumber && !ordersBeingClosed.contains(orderNum);
+          })
+          .toList();
+      
+      // Validar también operaciones pendientes de aceptar para otras órdenes
+      // (excluyendo las que están siendo cerradas)
+      final otherAcceptOps = allPendingOps
+          .where((op) => 
+              op['operation_type'] == 'accept' && 
+              op['order_number'] != widget.orderNumber &&
+              !ordersBeingClosed.contains(op['order_number'] as String))
+          .toList();
+      
+      String? orderInProcessNumber;
+      String? clientName;
+      
+      if (otherOrdersInProcess.isNotEmpty) {
+        final orderInProcess = otherOrdersInProcess.first;
+        orderInProcessNumber = orderInProcess['numero_orden'] as String;
+        clientName = orderInProcess['nombre_cliente'] as String? ?? 'N/A';
+      } else if (otherAcceptOps.isNotEmpty) {
+        final pendingOp = otherAcceptOps.first;
+        orderInProcessNumber = pendingOp['order_number'] as String;
+        // Intentar obtener el nombre del cliente de la orden local
+        final orderData = await DatabaseService.instance.getOrderByNumber(orderInProcessNumber);
+        clientName = orderData?['nombre_cliente'] as String? ?? 'N/A';
+      }
+      
+      if (orderInProcessNumber != null) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              icon: const Icon(Icons.warning, color: Colors.orange, size: 48),
+              title: const Text(
+                'Orden en Proceso',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Text(
+                'No puedes iniciar una nueva orden de servicio porque ya tienes una orden en proceso:\n\n'
+                'Orden #$orderInProcessNumber\n'
+                'Cliente: $clientName\n\n'
+                'Debes finalizar esta orden antes de poder iniciar otra.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Entendido'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    // Navegar a la orden en proceso
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => OrderDetailScreen(orderNumber: orderInProcessNumber!),
+                      ),
+                    );
+                  },
+                  child: const Text('Ver Orden en Proceso'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+      
+      // Si no hay órdenes en proceso, proceder con aceptar la orden
+      setState(() {
+        // Actualizar UI inmediatamente
+        if (_currentOrder != null) {
+          _currentOrder = Orden(
+            id: _currentOrder!.id,
+            numeroOrden: _currentOrder!.numeroOrden,
+            numeroExpediente: _currentOrder!.numeroExpediente,
+            nombreCliente: _currentOrder!.nombreCliente,
+            fechaHora: _currentOrder!.fechaHora,
+            valorServicio: _currentOrder!.valorServicio,
+            placa: _currentOrder!.placa,
+            referencia: _currentOrder!.referencia,
+            nombreAsignado: _currentOrder!.nombreAsignado,
+            celular: _currentOrder!.celular,
+            unidadNegocio: _currentOrder!.unidadNegocio,
+            movimiento: _currentOrder!.movimiento,
+            servicio: _currentOrder!.servicio,
+            modalidad: _currentOrder!.modalidad,
+            tipoActivo: _currentOrder!.tipoActivo,
+            marca: _currentOrder!.marca,
+            ciudadOrigen: _currentOrder!.ciudadOrigen,
+            direccionOrigen: _currentOrder!.direccionOrigen,
+            observacionesOrigen: _currentOrder!.observacionesOrigen,
+            ciudadDestino: _currentOrder!.ciudadDestino,
+            direccionDestino: _currentOrder!.direccionDestino,
+            observacionesDestino: _currentOrder!.observacionesDestino,
+            esProgramada: _currentOrder!.esProgramada,
+            fechaProgramada: _currentOrder!.fechaProgramada,
+            status: 'en proceso',
+          );
+          _hasStateChanged = true;
+        }
+      });
+      
       final updatedOrder = await _orderRepo.acceptOrder(widget.orderNumber);
       if (mounted) {
+        setState(() => _currentOrder = updatedOrder);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden tomada exitosamente.'), backgroundColor: Colors.green),
         );
-        setState(() {
-          _currentOrder = updatedOrder;
-          _hasStateChanged = true;
-        });
         SyncService.instance.sync();
       }
     } catch (e) {
       if (mounted) {
+        // Verificar si el error es por orden en proceso
+        if (e.toString().contains('Ya tienes una orden de servicio en proceso')) {
+          // Este caso ya fue manejado arriba, pero por si acaso
+          final ordersInProcess = await DatabaseService.instance.getOrdersInProcess();
+          final otherOrdersInProcess = ordersInProcess
+              .where((order) => order['numero_orden'] != widget.orderNumber)
+              .toList();
+          
+          if (otherOrdersInProcess.isNotEmpty) {
+            final orderInProcess = otherOrdersInProcess.first;
+            final orderNumber = orderInProcess['numero_orden'] as String;
+            final clientName = orderInProcess['nombre_cliente'] as String? ?? 'N/A';
+            
+            await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                icon: const Icon(Icons.warning, color: Colors.orange, size: 48),
+                title: const Text(
+                  'Orden en Proceso',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                content: Text(
+                  'No puedes iniciar una nueva orden de servicio porque ya tienes una orden en proceso:\n\n'
+                  'Orden #$orderNumber\n'
+                  'Cliente: $clientName\n\n'
+                  'Debes finalizar esta orden antes de poder iniciar otra.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Entendido'),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (_) => OrderDetailScreen(orderNumber: orderNumber),
+                        ),
+                      );
+                    },
+                    child: const Text('Ver Orden en Proceso'),
+                  ),
+                ],
+              ),
+            );
+            return;
+          }
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Orden guardada localmente. Se sincronizará cuando haya conexión.'),
             backgroundColor: Colors.orange,
           ),
         );
-        setState(() {
-          _currentOrder = _currentOrder != null
-              ? Orden(
-                  id: _currentOrder!.id,
-                  numeroOrden: _currentOrder!.numeroOrden,
-                  numeroExpediente: _currentOrder!.numeroExpediente,
-                  nombreCliente: _currentOrder!.nombreCliente,
-                  fechaHora: _currentOrder!.fechaHora,
-                  valorServicio: _currentOrder!.valorServicio,
-                  placa: _currentOrder!.placa,
-                  referencia: _currentOrder!.referencia,
-                  nombreAsignado: _currentOrder!.nombreAsignado,
-                  celular: _currentOrder!.celular,
-                  unidadNegocio: _currentOrder!.unidadNegocio,
-                  movimiento: _currentOrder!.movimiento,
-                  servicio: _currentOrder!.servicio,
-                  modalidad: _currentOrder!.modalidad,
-                  tipoActivo: _currentOrder!.tipoActivo,
-                  marca: _currentOrder!.marca,
-                  ciudadOrigen: _currentOrder!.ciudadOrigen,
-                  direccionOrigen: _currentOrder!.direccionOrigen,
-                  observacionesOrigen: _currentOrder!.observacionesOrigen,
-                  ciudadDestino: _currentOrder!.ciudadDestino,
-                  direccionDestino: _currentOrder!.direccionDestino,
-                  observacionesDestino: _currentOrder!.observacionesDestino,
-                  esProgramada: _currentOrder!.esProgramada,
-                  fechaProgramada: _currentOrder!.fechaProgramada,
-                  status: 'en proceso',
-                )
-              : null;
-          _hasStateChanged = true;
-        });
+        SyncService.instance.sync();
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -197,14 +339,50 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _closeOrder() async {
-    setState(() => _isLoading = true);
+    if (_isLoading) return; // Prevenir múltiples llamadas
+    
+    setState(() {
+      _isLoading = true;
+      // Actualizar UI inmediatamente
+      if (_currentOrder != null) {
+        _currentOrder = Orden(
+          id: _currentOrder!.id,
+          numeroOrden: _currentOrder!.numeroOrden,
+          numeroExpediente: _currentOrder!.numeroExpediente,
+          nombreCliente: _currentOrder!.nombreCliente,
+          fechaHora: _currentOrder!.fechaHora,
+          valorServicio: _currentOrder!.valorServicio,
+          placa: _currentOrder!.placa,
+          referencia: _currentOrder!.referencia,
+          nombreAsignado: _currentOrder!.nombreAsignado,
+          celular: _currentOrder!.celular,
+          unidadNegocio: _currentOrder!.unidadNegocio,
+          movimiento: _currentOrder!.movimiento,
+          servicio: _currentOrder!.servicio,
+          modalidad: _currentOrder!.modalidad,
+          tipoActivo: _currentOrder!.tipoActivo,
+          marca: _currentOrder!.marca,
+          ciudadOrigen: _currentOrder!.ciudadOrigen,
+          direccionOrigen: _currentOrder!.direccionOrigen,
+          observacionesOrigen: _currentOrder!.observacionesOrigen,
+          ciudadDestino: _currentOrder!.ciudadDestino,
+          direccionDestino: _currentOrder!.direccionDestino,
+          observacionesDestino: _currentOrder!.observacionesDestino,
+          esProgramada: _currentOrder!.esProgramada,
+          fechaProgramada: _currentOrder!.fechaProgramada,
+          status: 'cerrada',
+        );
+        _hasStateChanged = true;
+      }
+    });
+    
     try {
       final updatedOrder = await _orderRepo.closeOrder(widget.orderNumber);
       if (mounted) {
+        setState(() => _currentOrder = updatedOrder);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Orden cerrada exitosamente.'), backgroundColor: Colors.blue),
         );
-        setState(() => _currentOrder = updatedOrder);
         SyncService.instance.sync();
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) {
@@ -220,37 +398,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             backgroundColor: Colors.orange,
           ),
         );
-        setState(() {
-          _currentOrder = _currentOrder != null
-              ? Orden(
-                  id: _currentOrder!.id,
-                  numeroOrden: _currentOrder!.numeroOrden,
-                  numeroExpediente: _currentOrder!.numeroExpediente,
-                  nombreCliente: _currentOrder!.nombreCliente,
-                  fechaHora: _currentOrder!.fechaHora,
-                  valorServicio: _currentOrder!.valorServicio,
-                  placa: _currentOrder!.placa,
-                  referencia: _currentOrder!.referencia,
-                  nombreAsignado: _currentOrder!.nombreAsignado,
-                  celular: _currentOrder!.celular,
-                  unidadNegocio: _currentOrder!.unidadNegocio,
-                  movimiento: _currentOrder!.movimiento,
-                  servicio: _currentOrder!.servicio,
-                  modalidad: _currentOrder!.modalidad,
-                  tipoActivo: _currentOrder!.tipoActivo,
-                  marca: _currentOrder!.marca,
-                  ciudadOrigen: _currentOrder!.ciudadOrigen,
-                  direccionOrigen: _currentOrder!.direccionOrigen,
-                  observacionesOrigen: _currentOrder!.observacionesOrigen,
-                  ciudadDestino: _currentOrder!.ciudadDestino,
-                  direccionDestino: _currentOrder!.direccionDestino,
-                  observacionesDestino: _currentOrder!.observacionesDestino,
-                  esProgramada: _currentOrder!.esProgramada,
-                  fechaProgramada: _currentOrder!.fechaProgramada,
-                  status: 'cerrada',
-                )
-              : null;
-        });
         SyncService.instance.sync();
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) {

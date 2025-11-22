@@ -15,6 +15,10 @@ class SyncService {
   
   final ApiService _apiService = ApiService();
   final DatabaseService _dbService = DatabaseService.instance;
+  
+  // StreamController para notificar cambios en operaciones pendientes
+  final _pendingOperationsController = StreamController<String>.broadcast();
+  Stream<String> get pendingOperationsStream => _pendingOperationsController.stream;
 
   SyncService._init();
 
@@ -31,6 +35,14 @@ class SyncService {
 
   void dispose() {
     _connectivitySubscription?.cancel();
+    _pendingOperationsController.close();
+  }
+  
+  // Método para notificar cambios manualmente (útil cuando se agregan nuevas operaciones)
+  void notifyPendingOperationChange(String orderNumber) {
+    if (!_pendingOperationsController.isClosed) {
+      _pendingOperationsController.add(orderNumber);
+    }
   }
 
   Future<void> sync() async {
@@ -54,6 +66,8 @@ class SyncService {
       
       await _dbService.setSyncStatus('idle');
       debugPrint("Sincronización completada exitosamente");
+      // Notificar que se completó la sincronización (vacío significa actualizar todas)
+      _pendingOperationsController.add('');
     } catch (e) {
       await _dbService.setSyncStatus('error');
       debugPrint("Error en sincronización: $e");
@@ -109,6 +123,8 @@ class SyncService {
         
         await _dbService.deletePendingOperation(id);
         debugPrint("Operación $type para orden $orderNumber sincronizada");
+        // Notificar que se eliminó una operación pendiente para esta orden
+        _pendingOperationsController.add(orderNumber);
       } catch (e) {
         await _dbService.incrementRetryCount(id, e.toString());
         debugPrint("Error al sincronizar operación $id: $e");
