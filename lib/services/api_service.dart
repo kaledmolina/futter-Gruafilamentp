@@ -6,8 +6,8 @@ import '../models/orden_model.dart';
 import '../models/user_model.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://gruap.kaledcloud.tech/api';
-  static const String domain = 'https://gruap.kaledcloud.tech';
+  static const String baseUrl = 'https://grua2.moisescorchodev.com/api';
+  static const String domain = 'https://grua2.moisescorchodev.com';
 
   String getBaseUrl() => baseUrl;
 
