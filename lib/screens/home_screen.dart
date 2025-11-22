@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:intl/intl.dart';
 import '../models/user_model.dart';
-import '../services/api_service.dart';
+import '../models/orden_model.dart';
+import '../repositories/order_repository.dart';
 import '../services/auth_service.dart';
+import '../services/sync_service.dart';
+import '../services/database_service.dart';
 import 'login_screen.dart';
 import 'order_detail_screen.dart';
 import '../widgets/app_background.dart';
+import '../widgets/connection_status_indicator.dart';
 import 'preoperational_screen.dart';
+import 'debug_database_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,10 +22,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final ApiService _apiService = ApiService();
+  final OrderRepository _orderRepo = OrderRepository();
   final ScrollController _scrollController = ScrollController();
   
-  List<dynamic> _orders = [];
+  List<Orden> _orders = [];
   int _currentPage = 1;
   bool _isLoading = false;
   bool _hasMore = true;
@@ -30,8 +35,23 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadOrdersFromCache();
     _fetchOrders(isRefresh: true);
     _scrollController.addListener(_onScroll);
+    SyncService.instance.sync();
+  }
+
+  Future<void> _loadOrdersFromCache() async {
+    try {
+      final cachedOrders = await _orderRepo.getOrders(status: _currentStatusFilter);
+      if (mounted && cachedOrders.isNotEmpty) {
+        setState(() {
+          _orders = cachedOrders;
+        });
+      }
+    } catch (e) {
+      // Ignorar errores al cargar caché
+    }
   }
 
   @override
@@ -51,27 +71,39 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _fetchOrders({bool isRefresh = false}) async {
     if (_isLoading && !isRefresh) return;
-    setState(() => _isLoading = true);
+    if (!isRefresh) {
+      setState(() => _isLoading = true);
+    }
 
     if (isRefresh) {
       _currentPage = 1;
-      _orders = [];
       _hasMore = true;
     }
 
     try {
-      final response = await _apiService.getOrders(page: _currentPage, status: _currentStatusFilter);
-      final newOrders = response['data'] as List;
+      final orders = await _orderRepo.getOrders(page: _currentPage, status: _currentStatusFilter);
       
-      setState(() {
-        _orders.addAll(newOrders);
-        _currentPage++;
-        _hasMore = response['next_page_url'] != null;
-      });
-    } catch (e) {
       if (mounted) {
+        setState(() {
+          if (isRefresh) {
+            _orders = orders;
+          } else {
+            _orders.addAll(orders);
+          }
+          _currentPage++;
+          _hasMore = orders.length >= 10; // Asumir paginación si hay 10+ resultados
+        });
+      }
+    } catch (e) {
+      if (mounted && isRefresh) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar órdenes: ${e.toString()}')),
+          SnackBar(
+            content: Text('Error al cargar órdenes: ${e.toString()}'),
+            action: SnackBarAction(
+              label: 'Reintentar',
+              onPressed: () => _fetchOrders(isRefresh: true),
+            ),
+          ),
         );
       }
     } finally {
@@ -113,6 +145,12 @@ class _HomeScreenState extends State<HomeScreen> {
           elevation: 0,
           centerTitle: true,
           foregroundColor: Colors.black87,
+          actions: const [
+            Padding(
+              padding: EdgeInsets.only(right: 16.0),
+              child: ConnectionStatusIndicator(),
+            ),
+          ],
         ),
         drawer: _buildDrawer(),
         body: _buildBody(),
@@ -164,31 +202,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 : const SizedBox.shrink();
           }
           final order = _orders[index];
-          final statusInfo = _getStatusInfo(order['status']);
+          final statusInfo = _getStatusInfo(order.status);
           
-          return _buildGlassCard(
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              leading: Icon(statusInfo.$2, color: statusInfo.$1, size: 30),
-              title: Text('Orden #${order['numero_orden']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('Cliente: ${order['nombre_cliente']}'),
-              trailing: Chip(
-                label: Text(order['status'].toString().toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
-                backgroundColor: statusInfo.$1.withOpacity(0.8),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-              onTap: () async {
-                final result = await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => OrderDetailScreen(orderNumber: order['numero_orden']),
-                  ),
-                );
-                if (result == 'refresh' && mounted) {
-                  _fetchOrders(isRefresh: true);
-                }
-              },
-            ),
-          ).animate().fade(duration: 500.ms).slideY(begin: 0.5);
+          return _PendingOperationsIndicator(
+            orderNumber: order.numeroOrden,
+            statusInfo: statusInfo,
+            order: order,
+            onTap: () async {
+              final result = await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => OrderDetailScreen(orderNumber: order.numeroOrden),
+                ),
+              );
+              if (result == 'refresh' && mounted) {
+                _fetchOrders(isRefresh: true);
+              }
+            },
+          );
+              
         },
       ),
     );
@@ -252,6 +283,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildFilterTile('cerrada', 'Cerradas'),
                     _buildFilterTile('fallida', 'Fallidas'),
                     _buildFilterTile('anulada', 'Anuladas'),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.sync, color: Colors.blue),
+                      title: const Text('Estado de Sincronización'),
+                      onTap: () {
+                        Navigator.of(context).pop(); // Cierra el drawer
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const DebugDatabaseScreen()),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -284,7 +326,113 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: () => _applyFilter(status, 'Órdenes $title'),
     );
   }
-  
+}
+
+// Widget separado que maneja el estado reactivo de las operaciones pendientes
+class _PendingOperationsIndicator extends StatefulWidget {
+  final String orderNumber;
+  final (Color, IconData) statusInfo;
+  final Orden order;
+  final VoidCallback onTap;
+
+  const _PendingOperationsIndicator({
+    required this.orderNumber,
+    required this.statusInfo,
+    required this.order,
+    required this.onTap,
+  });
+
+  @override
+  State<_PendingOperationsIndicator> createState() => _PendingOperationsIndicatorState();
+}
+
+class _PendingOperationsIndicatorState extends State<_PendingOperationsIndicator> {
+  StreamSubscription<String>? _subscription;
+  int _refreshKey = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Escuchar cambios en el stream de notificaciones
+    _subscription = SyncService.instance.pendingOperationsStream.listen((orderNum) {
+      if (orderNum == widget.orderNumber || orderNum == '') {
+        // Forzar actualización cuando se sincroniza una operación de esta orden
+        setState(() {
+          _refreshKey++;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      key: ValueKey('${widget.orderNumber}_$_refreshKey'),
+      future: DatabaseService.instance.getPendingOperationsForOrder(widget.orderNumber),
+      builder: (context, snapshot) {
+        final hasPendingOps = snapshot.hasData && snapshot.data!.isNotEmpty;
+        
+        return _buildGlassCard(
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            leading: Stack(
+              children: [
+                Icon(widget.statusInfo.$2, color: widget.statusInfo.$1, size: 30),
+                if (hasPendingOps)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text('Orden #${widget.orderNumber}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+                if (hasPendingOps)
+                  Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      'Pendiente',
+                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            ),
+            subtitle: Text('Cliente: ${widget.order.nombreCliente}'),
+            trailing: Chip(
+              label: Text(widget.order.status.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+              backgroundColor: widget.statusInfo.$1.withOpacity(0.8),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            onTap: widget.onTap,
+          ),
+        ).animate().fade(duration: 500.ms).slideY(begin: 0.5);
+      },
+    );
+  }
+
   Widget _buildGlassCard({required Widget child}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

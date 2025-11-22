@@ -7,10 +7,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../models/orden_model.dart';
 import '../models/photo_status_model.dart';
-import '../services/api_service.dart';
+import '../repositories/order_repository.dart';
+import '../repositories/photo_repository.dart';
 import '../services/auth_service.dart';
-import '../services/database_service.dart';
+import '../services/sync_service.dart';
 import '../services/upload_service.dart';
+import '../widgets/connection_status_indicator.dart';
 import '../widgets/app_background.dart';
 import 'photo_view_screen.dart';
 
@@ -68,24 +70,15 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
     super.dispose();
   }
 
+  final PhotoRepository _photoRepo = PhotoRepository();
+
   Future<void> _loadPhotos() async {
     setState(() => _isLoading = true);
     try {
-      final uploaded = await ApiService().getUploadedPhotos(widget.orden.numeroOrden);
-      final pending = await DatabaseService.instance.getPendingPhotosForOrder(widget.orden.numeroOrden);
-
-      final List<PhotoDisplay> combinedList = [];
-      combinedList.addAll(uploaded.map((p) => PhotoDisplay(
-        remoteId: p['id'], 
-        path: p['path'], 
-        url: p['url'],
-        status: PhotoStatusType.uploaded
-      )));
-      combinedList.addAll(pending.map((p) => PhotoDisplay(localId: p['id'], path: p['image_path'], status: PhotoStatusType.local)));
-      
+      final photos = await _photoRepo.getPhotos(widget.orden.numeroOrden);
       if (mounted) {
         setState(() {
-          _galleryPhotos = combinedList;
+          _galleryPhotos = photos;
           _isLoading = false;
         });
       }
@@ -138,12 +131,14 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
     }
   }
 
+  final OrderRepository _orderRepo = OrderRepository();
+
   Future<void> _saveAndQueue() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
     try {
-      await ApiService().updateDetails(widget.orden.numeroOrden, {
+      await _orderRepo.updateOrderDetails(widget.orden.numeroOrden, {
         'celular': _celularController.text,
         'observaciones_origen': _obsOrigenController.text,
         'observaciones_destino': _obsDestinoController.text,
@@ -151,22 +146,27 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
 
       final newPhotos = _galleryPhotos.where((p) => p.status == PhotoStatusType.local && p.localId == null).toList();
       for (var photo in newPhotos) {
-        await DatabaseService.instance.addPendingPhoto(widget.orden.numeroOrden, photo.path);
+        await _photoRepo.addPhoto(widget.orden.numeroOrden, photo.path);
       }
       
       UploadService.instance.syncPendingUploads();
+      SyncService.instance.sync();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Datos guardados. Las fotos se subirán en segundo plano.'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Datos guardados. Se sincronizarán cuando haya conexión.'), backgroundColor: Colors.green),
         );
         Navigator.of(context).pop('refresh');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al guardar: ${e.toString()}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Datos guardados localmente. Se sincronizarán cuando haya conexión.'),
+            backgroundColor: Colors.orange,
+          ),
         );
+        Navigator.of(context).pop('refresh');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -183,6 +183,12 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           foregroundColor: Colors.black87,
+          actions: const [
+            Padding(
+              padding: EdgeInsets.only(right: 16.0),
+              child: ConnectionStatusIndicator(),
+            ),
+          ],
         ),
         body: Form(
           key: _formKey,
