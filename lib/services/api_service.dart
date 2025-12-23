@@ -34,7 +34,7 @@ class ApiService {
   Future<void> updateFcmToken(String fcmToken) async {
     final token = await AuthService.instance.getToken();
     if (token == null) return;
-    await http.post(
+    final response = await http.post(
       Uri.parse('$baseUrl/v1/update-fcm-token'),
       headers: {
         'Content-Type': 'application/json',
@@ -43,6 +43,7 @@ class ApiService {
       },
       body: jsonEncode({'fcm_token': fcmToken}),
     );
+    _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> getOrders({int page = 1, String status = 'todas'}) async {

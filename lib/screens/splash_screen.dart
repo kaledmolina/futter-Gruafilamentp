@@ -5,6 +5,8 @@ import 'home_screen.dart';
 import 'login_screen.dart';
 import 'preoperational_screen.dart';
 
+import '../services/notification_service.dart';
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -22,6 +24,9 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkInspectionStatus() async {
     // Pequeña demora para que la transición no sea tan abrupta
     await Future.delayed(const Duration(milliseconds: 500));
+
+    // Aseguramos que el token se registre al iniciar la app
+    await NotificationService.instance.requestPermissionAndRegisterToken();
 
     try {
       final completed = await ApiService().hasCompletedInspectionToday();
