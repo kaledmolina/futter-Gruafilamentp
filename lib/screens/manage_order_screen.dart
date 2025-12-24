@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../models/orden_model.dart';
 import '../models/photo_status_model.dart';
 import '../repositories/order_repository.dart';
@@ -121,8 +122,24 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
       List<File> newImages = [];
       for (var pickedFile in filesToProcess) {
         final fileName = p.basename(pickedFile.path);
-        final savedImage = await File(pickedFile.path).copy('${appDir.path}/$fileName');
-        newImages.add(savedImage);
+        final targetPath = '${appDir.path}/$fileName';
+        
+        // Compress and resize
+        final result = await FlutterImageCompress.compressAndGetFile(
+          pickedFile.path,
+          targetPath,
+          quality: 70,
+          minWidth: 1920,
+          minHeight: 1080,
+        );
+
+        if (result != null) {
+          newImages.add(File(result.path));
+        } else {
+          // Fallback if compression fails
+          final savedImage = await File(pickedFile.path).copy(targetPath);
+          newImages.add(savedImage);
+        }
       }
       
       setState(() {

@@ -61,6 +61,9 @@ class UploadService {
       } catch (e, stackTrace) {
         debugPrint("Error subiendo foto $photoId ($photoPath): $e");
         debugPrint("Stack trace: $stackTrace");
+        
+        await db.updatePendingPhotoError(photoId, e.toString());
+        
         _uploadStatusController.add(PhotoDisplay(
           localId: photoId, 
           path: photoPath, 

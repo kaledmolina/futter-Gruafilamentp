@@ -5,7 +5,7 @@ import 'package:path/path.dart';
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
   static Database? _database;
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
 
   DatabaseService._init();
 
@@ -35,7 +35,8 @@ class DatabaseService {
         order_number TEXT NOT NULL,
         image_path TEXT NOT NULL,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-        sync_status TEXT NOT NULL DEFAULT 'pending'
+        sync_status TEXT NOT NULL DEFAULT 'pending',
+        last_error TEXT
       )
     ''');
 
@@ -217,6 +218,13 @@ class DatabaseService {
         'value': 'idle',
       });
     }
+
+    if (oldVersion < 3) {
+      await db.execute('''
+        ALTER TABLE pending_photos 
+        ADD COLUMN last_error TEXT
+      ''');
+    }
   }
 
   // ========== PENDING PHOTOS ==========
@@ -246,6 +254,16 @@ class DatabaseService {
   Future<void> deletePendingPhoto(int id) async {
     final db = await database;
     await db.delete('pending_photos', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updatePendingPhotoError(int id, String error) async {
+    final db = await database;
+    await db.update(
+      'pending_photos',
+      {'last_error': error},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ========== ORDERS ==========

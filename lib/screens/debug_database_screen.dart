@@ -491,31 +491,65 @@ class _DebugDatabaseScreenState extends State<DebugDatabaseScreen> {
               children: _pendingPhotos.map((photo) {
                 final orderNumber = photo['order_number'] as String;
                 final createdAt = _formatTimestamp(photo['created_at'] as int?);
+                final error = _getErrorMessage(photo['last_error'] as String?);
                 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.photo, color: Colors.purple, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Foto de la Orden $orderNumber',
-                              style: const TextStyle(fontWeight: FontWeight.w500),
+                      Row(
+                        children: [
+                          const Icon(Icons.photo, color: Colors.purple, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Foto de la Orden $orderNumber',
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                Text(
+                                  'Creada: $createdAt',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
                             ),
-                            Text(
-                              'Creada: $createdAt',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                          if (error != null)
+                             const Icon(Icons.error, color: Colors.red, size: 20),
+                        ],
                       ),
+                      if (error != null) ...[
+                        const SizedBox(height: 8),
+                         Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning, color: Colors.red, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  error,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 );
