@@ -9,6 +9,7 @@ import 'manage_order_screen.dart';
 import '../widgets/app_background.dart';
 import '../widgets/connection_status_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../widgets/glass_card.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final String orderNumber;
@@ -452,9 +453,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final orden = _currentOrder!;
     return Stack(
       children: [
-        SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 150),
-          child: _buildDetailSection(orden),
+        RefreshIndicator(
+          onRefresh: _loadOrderDetails,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 150),
+            child: _buildDetailSection(orden),
+          ),
         ),
         if (_isLoading)
           Container(
@@ -614,22 +619,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Widget _buildGlassCard({required Widget child}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16.0),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(16.0),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.2),
-                width: 1.5,
-              ),
-            ),
-            child: child,
-          ),
-        ),
+      child: GlassCard(
+        borderRadius: 16.0,
+        sigmaX: 5.0,
+        sigmaY: 5.0,
+        child: child,
       ),
     );
   }

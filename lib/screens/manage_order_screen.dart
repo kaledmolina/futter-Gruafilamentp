@@ -1,4 +1,5 @@
-import 'dart:async';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../widgets/glass_card.dart';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -214,7 +215,8 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildGlassCard(
+                GlassCard(
+                  borderRadius: 16,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -239,11 +241,12 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
                       ],
                     ),
                   )
-                ),
+                ).animate().slideY(begin: 0.1, end: 0, duration: 400.ms, curve: Curves.easeOutQuad).fade(),
                 const SizedBox(height: 24),
-                Text('Fotos de la Orden', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                Text('Fotos de la Orden', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold))
+                   .animate().fade(delay: 200.ms).slideX(),
                 const SizedBox(height: 8),
-                _isLoading ? const Center(child: CircularProgressIndicator()) : _buildPhotoGrid(),
+                _isLoading ? const Center(child: CircularProgressIndicator()) : _buildPhotoGrid().animate().fade(delay: 300.ms),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.add_a_photo),
@@ -255,7 +258,7 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
                     side: BorderSide(color: Theme.of(context).colorScheme.primary),
                     backgroundColor: Colors.white.withOpacity(0.5)
                   ),
-                ),
+                ).animate().scale(delay: 400.ms),
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   icon: const Icon(Icons.sync),
@@ -264,7 +267,7 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                ),
+                ).animate().scale(delay: 500.ms),
               ],
             ),
           ),
@@ -273,25 +276,7 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
     );
   }
 
-  Widget _buildGlassCard({required Widget child}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16.0),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(16.0),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1.5,
-            ),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildPhotoGrid() {
     return GridView.builder(

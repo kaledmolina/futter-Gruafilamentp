@@ -6,8 +6,9 @@ import '../models/orden_model.dart';
 import '../models/user_model.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://sistema.asisvehjyh.com/api';
-  static const String domain = 'https://sistema.asisvehjyh.com';
+  static const String _baseUrlDomain = 'https://sistema.asisvehjyh.com';
+  static const String baseUrl = '$_baseUrlDomain/api';
+  static const String domain = _baseUrlDomain;
 
   String getBaseUrl() => baseUrl;
 

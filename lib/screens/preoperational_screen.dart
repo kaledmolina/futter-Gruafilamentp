@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import '../models/user_model.dart';
 import '../repositories/inspection_repository.dart';
@@ -8,6 +9,7 @@ import '../widgets/app_background.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
 import '../services/auth_service.dart';
+import '../widgets/glass_card.dart';
 
 // Modelo para una pregunta del quiz
 enum QuestionType { yesNo, textInput, checklist }
@@ -283,8 +285,56 @@ class _PreoperationalScreenState extends State<PreoperationalScreen> {
         curve: Curves.easeIn,
       );
     } else {
-      _submitForm();
+      _showSummaryAndSubmit();
     }
+  }
+
+  void _showSummaryAndSubmit() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Resumen de Inspección'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Por favor revisa tus respuestas antes de enviar:'),
+              const SizedBox(height: 10),
+              ..._allQuestions.where((q) => q.type != QuestionType.checklist).map((q) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: RichText(
+                    text: TextSpan(
+                      style: const TextStyle(color: Colors.black87),
+                      children: [
+                        TextSpan(text: '${q.label}: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        TextSpan(text: q.controller.text.isNotEmpty ? q.controller.text : '(Sin respuesta)'),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 10),
+              const Text('Checklist completado.', style: TextStyle(fontStyle: FontStyle.italic)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Volver'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _submitForm();
+            },
+            child: const Text('Enviar Inspección'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _submitForm() async {
@@ -370,15 +420,13 @@ class _PreoperationalScreenState extends State<PreoperationalScreen> {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
-        child: Card(
-          elevation: 8,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: GlassCard(
+          borderRadius: 20,
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: _buildQuestionContent(question),
           ),
-        ),
+        ).animate(key: ValueKey(_currentIndex)).fade(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutQuad),
       ),
     );
   }
@@ -457,7 +505,7 @@ class _PreoperationalScreenState extends State<PreoperationalScreen> {
                 labelText: 'Nuevo valor para ${question.label}',
                 border: const OutlineInputBorder()),
             onFieldSubmitted: (_) => _nextQuestion(),
-          ),
+          ).animate().fade().scale(),
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -471,12 +519,15 @@ class _PreoperationalScreenState extends State<PreoperationalScreen> {
                   shape: const CircleBorder()),
               child: const Text('NO',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            ),
+            ).animate().scale(delay: 100.ms),
             const SizedBox(width: 20),
             ElevatedButton(
               onPressed: () {
                 question.controller.text = question.initialValue ?? '';
-                _nextQuestion();
+                // Auto-advance with small delay for visual feedback
+                Future.delayed(const Duration(milliseconds: 300), () {
+                    if (mounted) _nextQuestion();
+                });
               },
               style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
@@ -485,7 +536,7 @@ class _PreoperationalScreenState extends State<PreoperationalScreen> {
                   shape: const CircleBorder()),
               child: const Text('SI',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            ),
+            ).animate().scale(delay: 200.ms),
           ],
         ),
         if (question.isEditing)
@@ -495,7 +546,7 @@ class _PreoperationalScreenState extends State<PreoperationalScreen> {
               onPressed: _nextQuestion,
               child: const Text('Confirmar y Siguiente'),
             ),
-          ),
+          ).animate().fade(delay: 300.ms),
       ],
     );
   }

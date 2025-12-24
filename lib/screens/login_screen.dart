@@ -6,6 +6,7 @@ import '../services/notification_service.dart';
 import 'home_screen.dart';
 import 'preoperational_screen.dart';
 import '../widgets/app_background.dart';
+import '../widgets/glass_card.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -89,54 +90,78 @@ class _LoginScreenState extends State<LoginScreen> {
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
-            child: _buildGlassCard(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Bienvenido',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildStatusChip(),
-                    const SizedBox(height: 24),
-                    TextField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Correo Electrónico',
-                        border: UnderlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Contraseña',
-                        border: UnderlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    _isLoading
-                        ? const CircularProgressIndicator()
-                        : FilledButton(
-                            onPressed: _login,
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 50,
-                                vertical: 15,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildGlassCard(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Logo
+                        Image.asset(
+                          'assets/logo.png',
+                          height: 100, // Ajusta la altura según sea necesario
+                          errorBuilder: (context, error, stackTrace) {
+                             return const Icon(Icons.business, size: 80, color: Colors.white);
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Bienvenido',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
                               ),
-                            ),
-                            child: const Text('Ingresar'),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildStatusChip(),
+                        const SizedBox(height: 24),
+                        TextField(
+                          controller: _emailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Correo Electrónico',
+                            border: UnderlineInputBorder(),
                           ),
-                  ],
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Contraseña',
+                            border: UnderlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        _isLoading
+                            ? const CircularProgressIndicator()
+                            : FilledButton(
+                                onPressed: _login,
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 50,
+                                    vertical: 15,
+                                  ),
+                                ),
+                                child: const Text('Ingresar'),
+                              ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 40),
+                // Footer
+                const Text(
+                  'Desarrollado por Kaled Molina Pequeño',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -171,22 +196,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildGlassCard({required Widget child}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24.0),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.3),
-              width: 1.5,
-            ),
-          ),
-          child: child,
-        ),
-      ),
+    return GlassCard(
+      borderRadius: 24.0,
+      child: child,
     );
   }
 }
