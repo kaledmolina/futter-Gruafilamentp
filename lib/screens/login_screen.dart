@@ -154,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 40),
                 // Footer
                 const Text(
-                  'Desarrollado por Kaled Molina Pequeño',
+                  'Desarrollado por Kaled Molina',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12,
