@@ -334,9 +334,25 @@ class _ManageOrderScreenState extends State<ManageOrderScreen> {
                 child: const Center(child: CircularProgressIndicator(color: Colors.white)),
               ),
             if (photo.status == PhotoStatusType.error)
-              Container(
-                color: Colors.black.withOpacity(0.5),
-                child: const Icon(Icons.error_outline, color: Colors.red, size: 30),
+              GestureDetector(
+                onTap: () {
+                  if (photo.errorMessage != null) {
+                     showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Error de Subida'),
+                        content: Text(photo.errorMessage!),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))
+                        ],
+                      ),
+                    );
+                  }
+                },
+                child: Container(
+                  color: Colors.black.withOpacity(0.5),
+                  child: const Icon(Icons.error_outline, color: Colors.red, size: 30),
+                ),
               ),
           ],
         ),

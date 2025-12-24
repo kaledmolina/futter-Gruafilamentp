@@ -61,7 +61,12 @@ class UploadService {
       } catch (e, stackTrace) {
         debugPrint("Error subiendo foto $photoId ($photoPath): $e");
         debugPrint("Stack trace: $stackTrace");
-        _uploadStatusController.add(PhotoDisplay(localId: photoId, path: photoPath, status: PhotoStatusType.error));
+        _uploadStatusController.add(PhotoDisplay(
+          localId: photoId, 
+          path: photoPath, 
+          status: PhotoStatusType.error,
+          errorMessage: e.toString(),
+        ));
       }
     }
     _isSyncing = false;

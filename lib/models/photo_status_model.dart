@@ -6,6 +6,7 @@ class PhotoDisplay {
   final String path; // Ruta local o relativa del servidor
   final String? url;  // URL completa y segura para ver la foto
   final PhotoStatusType status;
+  final String? errorMessage;
 
   PhotoDisplay({
     this.localId,
@@ -13,5 +14,6 @@ class PhotoDisplay {
     required this.path,
     this.url,
     required this.status,
+    this.errorMessage,
   });
 }
