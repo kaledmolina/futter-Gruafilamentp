@@ -128,14 +128,37 @@ class DatabaseService {
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       // Migrar pending_photos
-      await db.execute('''
-        ALTER TABLE pending_photos 
-        ADD COLUMN created_at INTEGER DEFAULT (strftime('%s', 'now'))
-      ''');
-      await db.execute('''
-        ALTER TABLE pending_photos 
-        ADD COLUMN sync_status TEXT DEFAULT 'pending'
-      ''');
+      // Migrar pending_photos (Fix: SQLite no soporta ADD COLUMN con dynamic default)
+      try {
+        await db.transaction((txn) async {
+          // 1. Renombrar tabla existente
+          await txn.execute('ALTER TABLE pending_photos RENAME TO pending_photos_old');
+          
+          // 2. Crear nueva tabla con la estructura correcta (v2)
+          await txn.execute('''
+            CREATE TABLE pending_photos (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              order_number TEXT NOT NULL,
+              image_path TEXT NOT NULL,
+              created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+              sync_status TEXT NOT NULL DEFAULT 'pending'
+            )
+          ''');
+
+          // 3. Copiar datos
+          await txn.execute('''
+            INSERT INTO pending_photos (id, order_number, image_path)
+            SELECT id, order_number, image_path FROM pending_photos_old
+          ''');
+
+          // 4. Eliminar tabla antigua
+          await txn.execute('DROP TABLE pending_photos_old');
+        });
+      } catch (e) {
+        print('Error during migration v2 pending_photos: $e');
+        // Si falla, intentamos restaurar o lanzar error crítico
+        rethrow;
+      }
 
       // Crear nuevas tablas
       await db.execute('''
