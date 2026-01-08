@@ -480,7 +480,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildActionButtons(Orden orden) {
-    if (orden.status == 'abierta') {
+    if (orden.status == 'abierta' || orden.status == 'programada') {
       return Row(
         children: [
           Expanded(
