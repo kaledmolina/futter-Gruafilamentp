@@ -50,45 +50,6 @@ class OrderRepository {
   }
 
   Future<Orden> acceptOrder(String orderNumber) async {
-    // Validar si ya hay una orden en proceso (excluyendo la actual)
-    final ordersInProcess = await _dbService.getOrdersInProcess();
-    
-    // Obtener todas las operaciones pendientes
-    final allPendingOps = await _dbService.getPendingOperations();
-    
-    // Obtener las órdenes que tienen operaciones pendientes de "close" (ya están siendo cerradas)
-    final ordersBeingClosed = allPendingOps
-        .where((op) => op['operation_type'] == 'close')
-        .map((op) => op['order_number'] as String)
-        .toSet();
-    
-    // Filtrar órdenes en proceso excluyendo:
-    // 1. La orden actual
-    // 2. Las órdenes que tienen una operación pendiente de "close" (ya están siendo cerradas)
-    final otherOrdersInProcess = ordersInProcess
-        .where((order) {
-          final orderNum = order['numero_orden'] as String;
-          return orderNum != orderNumber && !ordersBeingClosed.contains(orderNum);
-        })
-        .toList();
-    
-    if (otherOrdersInProcess.isNotEmpty) {
-      throw Exception('Ya tienes una orden de servicio en proceso. Debes finalizarla antes de iniciar otra.');
-    }
-    
-    // Validar si hay operaciones pendientes de aceptar para otras órdenes
-    // (excluyendo las que están siendo cerradas)
-    final otherAcceptOps = allPendingOps
-        .where((op) => 
-            op['operation_type'] == 'accept' && 
-            op['order_number'] != orderNumber &&
-            !ordersBeingClosed.contains(op['order_number'] as String))
-        .toList();
-    
-    if (otherAcceptOps.isNotEmpty) {
-      throw Exception('Ya tienes una orden de servicio en proceso. Debes finalizarla antes de iniciar otra.');
-    }
-    
     final hasConnection = await _hasConnection();
     
     // Verificar si ya existe una operación pendiente de aceptar para esta orden
