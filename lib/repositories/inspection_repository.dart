@@ -10,6 +10,9 @@ class InspectionRepository {
   Future<void> submitInspection(Map<String, dynamic> inspectionData) async {
     final hasConnection = await _hasConnection();
     
+    // Guardar fecha localmente inmediatamente para bloquear la UI
+    await _dbService.setLastInspectionDate(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+    
     if (hasConnection) {
       try {
         await _apiService.submitInspection(inspectionData);
@@ -26,16 +29,34 @@ class InspectionRepository {
   }
 
   Future<bool> hasCompletedInspectionToday() async {
+    // 1. Revisar metadatos locales (lo más rápido y funciona offline)
+    final lastDateTimestamp = await _dbService.getLastInspectionDate();
+    if (lastDateTimestamp > 0) {
+      final lastDate = DateTime.fromMillisecondsSinceEpoch(lastDateTimestamp * 1000);
+      final now = DateTime.now();
+      if (lastDate.year == now.year &&
+          lastDate.month == now.month &&
+          lastDate.day == now.day) {
+        return true;
+      }
+    }
+
     final hasConnection = await _hasConnection();
     
     if (hasConnection) {
       try {
-        return await _apiService.hasCompletedInspectionToday();
+        final apiResult = await _apiService.hasCompletedInspectionToday();
+        if (apiResult) {
+          // Actualizar local si la API dice que sí
+          await _dbService.setLastInspectionDate(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+          return true;
+        }
       } catch (e) {
-        return await _checkLocalInspectionToday();
+        // Fallback a chequeo local de pendientes
       }
     }
     
+    // 3. Revisar pendientes (por si acaso se guardó pero no se actualizó metadata)
     return await _checkLocalInspectionToday();
   }
 

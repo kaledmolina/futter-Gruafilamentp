@@ -78,11 +78,25 @@ class SyncService {
 
   Future<void> _syncOrdersFromServer() async {
     try {
+      // 1. Sincronizar órdenes activas/todas
       final response = await _apiService.getOrders(page: 1, status: 'todas');
       final ordersData = response['data'] as List;
       
       final orders = ordersData.map((json) => _orderJsonToDbMap(json)).toList();
       await _dbService.saveOrders(orders);
+
+      // 2. Sincronizar también órdenes cerradas para asegurar que aparezcan y actualicen estados
+      try {
+        final responseClosed = await _apiService.getOrders(page: 1, status: 'cerrada');
+        final closedOrdersData = responseClosed['data'] as List;
+        final closedOrders = closedOrdersData.map((json) => _orderJsonToDbMap(json)).toList();
+        await _dbService.saveOrders(closedOrders);
+        debugPrint("Órdenes cerradas sincronizadas: ${closedOrders.length}");
+      } catch (e) {
+        debugPrint("Error sincronizando cerradas: $e");
+        // No detener el proceso si falla esto
+      }
+
       await _dbService.setLastSyncOrders(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );

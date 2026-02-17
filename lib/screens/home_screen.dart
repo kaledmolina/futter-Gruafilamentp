@@ -14,6 +14,7 @@ import '../widgets/app_background.dart';
 import '../widgets/connection_status_indicator.dart';
 import 'preoperational_screen.dart';
 import 'debug_database_screen.dart';
+import '../repositories/inspection_repository.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,10 +36,25 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _checkInspectionStatus();
     _loadOrdersFromCache();
     _fetchOrders(isRefresh: true);
     _scrollController.addListener(_onScroll);
     SyncService.instance.sync();
+  }
+
+  Future<void> _checkInspectionStatus() async {
+    // Verificar si ya se hizo la inspección hoy
+    final inspectionRepo = InspectionRepository();
+    final completed = await inspectionRepo.hasCompletedInspectionToday();
+    
+    if (!completed && mounted) {
+      // Redirigir obligatoriamente a la pantalla de preoperacional
+      // Usamos pushReplacement para evitar que vuelvan atrás
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const PreoperationalScreen()),
+      );
+    }
   }
 
   Future<void> _loadOrdersFromCache() async {

@@ -93,11 +93,46 @@ class OrderRepository {
     if (hasConnection) {
       try {
         final order = await _apiService.acceptOrder(orderNumber);
-        await _saveOrderToLocal(order);
+        
+        // 🚨 UPDATE: Force 'en proceso' status locally for scheduled orders
+        // This ensures the UI properly reflects the state even if the API
+        // returns 'programada' or if there's a delay in the backend.
+        Orden orderToSave = order;
+        if (order.esProgramada || order.status == 'programada') {
+          orderToSave = Orden(
+            id: order.id,
+            numeroOrden: order.numeroOrden,
+            numeroExpediente: order.numeroExpediente,
+            nombreCliente: order.nombreCliente,
+            fechaHora: order.fechaHora,
+            valorServicio: order.valorServicio,
+            placa: order.placa,
+            referencia: order.referencia,
+            nombreAsignado: order.nombreAsignado,
+            celular: order.celular,
+            unidadNegocio: order.unidadNegocio,
+            movimiento: order.movimiento,
+            servicio: order.servicio,
+            modalidad: order.modalidad,
+            tipoActivo: order.tipoActivo,
+            marca: order.marca,
+            ciudadOrigen: order.ciudadOrigen,
+            direccionOrigen: order.direccionOrigen,
+            observacionesOrigen: order.observacionesOrigen,
+            ciudadDestino: order.ciudadDestino,
+            direccionDestino: order.direccionDestino,
+            observacionesDestino: order.observacionesDestino,
+            esProgramada: order.esProgramada,
+            fechaProgramada: order.fechaProgramada,
+            status: 'en proceso', // FORCE STATUS
+          );
+        }
+
+        await _saveOrderToLocal(orderToSave);
         await _dbService.deletePendingOperation(
           await _findPendingOperation('accept', orderNumber),
         );
-        return order;
+        return orderToSave;
       } catch (e) {
         // Actualizar estado local inmediatamente
         await _updateLocalOrderStatus(orderNumber, 'en proceso');

@@ -525,4 +525,14 @@ class DatabaseService {
     final count = result.first['count'] as int;
     await setSyncMetadata('pending_operations_count', count.toString());
   }
+
+  // ========== INSPECTION METADATA ==========
+  Future<int> getLastInspectionDate() async {
+    final value = await getSyncMetadata('last_inspection_date');
+    return int.tryParse(value ?? '0') ?? 0;
+  }
+
+  Future<void> setLastInspectionDate(int timestamp) async {
+    await setSyncMetadata('last_inspection_date', timestamp.toString());
+  }
 }

@@ -89,6 +89,7 @@ class _PreoperationalScreenState extends State<PreoperationalScreen> {
   @override
   void initState() {
     super.initState();
+    _checkIfCompleted();
     _loadInitialData();
 
     // Inicializar checklist sin valores por defecto
@@ -97,6 +98,34 @@ class _PreoperationalScreenState extends State<PreoperationalScreen> {
         _inspectionData[item] = null; // No seleccionado
       }
     }
+  }
+  
+  Future<void> _checkIfCompleted() async {
+    final completed = await _inspectionRepo.hasCompletedInspectionToday();
+    if (completed && mounted) {
+      _showCompletedDialog();
+    }
+  }
+
+  void _showCompletedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text("Inspección Completada"),
+        content: const Text("Ya has realizado la inspección preoperacional de hoy."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const HomeScreen()),
+              );
+            },
+            child: const Text("Ir al Inicio"),
+          ),
+        ],
+      ),
+    );
   }
 
   final InspectionRepository _inspectionRepo = InspectionRepository();
