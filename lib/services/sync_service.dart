@@ -153,8 +153,21 @@ class SyncService {
         // Notificar que se eliminó una operación pendiente para esta orden
         _pendingOperationsController.add(orderNumber);
       } catch (e) {
-        await _dbService.incrementRetryCount(id, e.toString());
-        debugPrint("Error al sincronizar operación $id: $e");
+        final errorMsg = e.toString().toLowerCase();
+        // Errores no recuperables: Si el servidor dice que no se puede procesar o cerrar,
+        // es probable que el estado ya haya cambiado. Eliminamos la operación para no bloquear.
+        if (errorMsg.contains('ya no se puede procesar') || 
+            errorMsg.contains('no se puede cerrar') ||
+            errorMsg.contains('already processed')) {
+              
+          await _dbService.deletePendingOperation(id);
+          debugPrint("Operación $id eliminada por error no recuperable: $e");
+          // Notificar cambio para limpiar la UI
+          _pendingOperationsController.add(orderNumber);
+        } else {
+          await _dbService.incrementRetryCount(id, e.toString());
+          debugPrint("Error al sincronizar operación $id: $e");
+        }
       }
     }
   }
