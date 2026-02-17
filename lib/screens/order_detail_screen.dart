@@ -502,9 +502,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildPhotosSection(List<dynamic> photos) {
-    if (photos.isEmpty && !_isLoadingPhotos) {
-      return const SizedBox.shrink(); // No mostrar nada si no hay fotos
-    }
+    // REMOVED early return to ensure section is always visible
+    // if (photos.isEmpty && !_isLoadingPhotos) {
+    //   return const SizedBox.shrink(); 
+    // }
 
     return _buildGlassCard(
       child: Padding(
