@@ -404,34 +404,32 @@ class OrderRepository {
   Orden _dbMapToOrden(Map<String, dynamic> map) {
     return Orden(
       id: map['id'] as int,
-      numeroOrden: map['numero_orden'] as String,
-      numeroExpediente: map['numero_expediente'] as String?,
-      nombreCliente: map['nombre_cliente'] as String,
-      fechaHora: DateTime.parse(map['fecha_hora'] as String).toLocal(),
-      valorServicio: map['valor_servicio'] != null
-          ? double.tryParse(map['valor_servicio'] as String)
-          : null,
-      placa: map['placa'] as String?,
-      referencia: map['referencia'] as String?,
-      nombreAsignado: map['nombre_asignado'] as String?,
-      celular: map['celular'] as String?,
-      unidadNegocio: map['unidad_negocio'] as String?,
-      movimiento: map['movimiento'] as String?,
-      servicio: map['servicio'] as String?,
-      modalidad: map['modalidad'] as String?,
-      tipoActivo: map['tipo_activo'] as String?,
-      marca: map['marca'] as String?,
-      ciudadOrigen: map['ciudad_origen'] as String,
-      direccionOrigen: map['direccion_origen'] as String,
-      observacionesOrigen: map['observaciones_origen'] as String?,
-      ciudadDestino: map['ciudad_destino'] as String,
-      direccionDestino: map['direccion_destino'] as String,
-      observacionesDestino: map['observaciones_destino'] as String?,
+      numeroOrden: map['numero_orden']?.toString() ?? '',
+      numeroExpediente: map['numero_expediente']?.toString(),
+      nombreCliente: map['nombre_cliente']?.toString() ?? '',
+      fechaHora: DateTime.tryParse(map['fecha_hora'].toString())?.toLocal() ?? DateTime.now(),
+      valorServicio: double.tryParse(map['valor_servicio']?.toString() ?? ''),
+      placa: map['placa']?.toString(),
+      referencia: map['referencia']?.toString(),
+      nombreAsignado: map['nombre_asignado']?.toString(),
+      celular: map['celular']?.toString(),
+      unidadNegocio: map['unidad_negocio']?.toString(),
+      movimiento: map['movimiento']?.toString(),
+      servicio: map['servicio']?.toString(),
+      modalidad: map['modalidad']?.toString(),
+      tipoActivo: map['tipo_activo']?.toString(),
+      marca: map['marca']?.toString(),
+      ciudadOrigen: map['ciudad_origen']?.toString() ?? '',
+      direccionOrigen: map['direccion_origen']?.toString() ?? '',
+      observacionesOrigen: map['observaciones_origen']?.toString(),
+      ciudadDestino: map['ciudad_destino']?.toString() ?? '',
+      direccionDestino: map['direccion_destino']?.toString() ?? '',
+      observacionesDestino: map['observaciones_destino']?.toString(),
       esProgramada: (map['es_programada'] as int) == 1,
       fechaProgramada: map['fecha_programada'] != null
-          ? DateTime.parse(map['fecha_programada'] as String).toLocal()
+          ? DateTime.tryParse(map['fecha_programada'].toString())?.toLocal()
           : null,
-      status: map['status'] as String,
+      status: map['status']?.toString() ?? '',
     );
   }
 }
