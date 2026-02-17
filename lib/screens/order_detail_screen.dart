@@ -25,12 +25,32 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool _isLoading = true;
   String? _error;
   bool _hasStateChanged = false;
+  List<dynamic> _photos = [];
+  bool _isLoadingPhotos = false;
 
   @override
   void initState() {
     super.initState();
     _loadOrderDetails();
+    _loadOrderDetails();
+    _loadPhotos(); // Cargar fotos al inicio
     SyncService.instance.sync();
+  }
+
+  Future<void> _loadPhotos() async {
+    setState(() => _isLoadingPhotos = true);
+    try {
+      final photos = await _orderRepo.getOrderPhotos(widget.orderNumber);
+      if (mounted) {
+        setState(() {
+          _photos = photos;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error cargando fotos: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingPhotos = false);
+    }
   }
   
   Future<void> _loadOrderDetails() async {
@@ -472,10 +492,108 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           child: _buildDetailCard('Destino', [
             _buildDetailRow('Ciudad', orden.ciudadDestino),
             _buildDetailRow('Dirección', orden.direccionDestino),
+
             _buildDetailRow('Observaciones', orden.observacionesDestino),
           ]),
         ),
+        _buildPhotosSection(_photos),
       ],
+    );
+  }
+
+  Widget _buildPhotosSection(List<dynamic> photos) {
+    if (photos.isEmpty && !_isLoadingPhotos) {
+      return const SizedBox.shrink(); // No mostrar nada si no hay fotos
+    }
+
+    return _buildGlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+             Text(
+              'Fotos de la Orden',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const Divider(height: 20, thickness: 1),
+            if (_isLoadingPhotos)
+              const Center(child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: CircularProgressIndicator(),
+              ))
+            else if (photos.isEmpty)
+               const Center(child: Text('No hay fotos disponibles.'))
+            else
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemCount: photos.length,
+                itemBuilder: (context, index) {
+                  final photoMap = photos[index];
+                  final url = photoMap['url'] as String?;
+                  
+                  if (url == null) return const SizedBox.shrink();
+
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            appBar: AppBar(
+                              backgroundColor: Colors.black, 
+                              foregroundColor: Colors.white,
+                              title: const Text('Vista de Foto'),
+                            ),
+                            backgroundColor: Colors.black,
+                            body: Center(
+                              child: InteractiveViewer(
+                                child: Image.network(
+                                  url, 
+                                  errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image, color: Colors.white)),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                           return Container(
+                             color: Colors.grey[200],
+                             child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                           );
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 

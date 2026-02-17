@@ -259,6 +259,16 @@ class OrderRepository {
     }
   }
 
+  Future<List<dynamic>> getOrderPhotos(String orderNumber) async {
+    try {
+      return await _apiService.getUploadedPhotos(orderNumber);  
+    } catch (e) {
+      // Si falla (por ejemplo, sin conexión), retornamos lista vacía por ahora
+      // O idealmente podríamos implementar caché de fotos también.
+      return [];
+    }
+  }
+
   Future<bool> _hasConnection() async {
     final connectivityResult = await Connectivity().checkConnectivity();
     return connectivityResult.contains(ConnectivityResult.mobile) ||
