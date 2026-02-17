@@ -15,6 +15,7 @@ import '../widgets/connection_status_indicator.dart';
 import 'preoperational_screen.dart';
 import 'debug_database_screen.dart';
 import '../repositories/inspection_repository.dart';
+import 'pending_photos_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -307,6 +308,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         Navigator.of(context).pop(); // Cierra el drawer
                         Navigator.of(context).push(
                           MaterialPageRoute(builder: (_) => const DebugDatabaseScreen()),
+                        );
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.image_search, color: Colors.orange),
+                      title: const Text('Fotos Pendientes'),
+                      onTap: () {
+                        Navigator.of(context).pop(); // Cierra el drawer
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const PendingPhotosScreen()),
                         );
                       },
                     ),
