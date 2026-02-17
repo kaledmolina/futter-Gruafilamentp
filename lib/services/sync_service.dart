@@ -83,6 +83,19 @@ class SyncService {
       final ordersData = response['data'] as List;
       
       final orders = ordersData.map((json) => _orderJsonToDbMap(json)).toList();
+      
+      // Smart merging: Prevenir que 'programada' sobrescriba 'en proceso' local
+      for (var i = 0; i < orders.length; i++) {
+        final newOrder = orders[i];
+        if (newOrder['status'] == 'programada') {
+          final localOrder = await _dbService.getOrderByNumber(newOrder['numero_orden']);
+          if (localOrder != null && localOrder['status'] == 'en proceso') {
+            // Mantener el estado local 'en proceso'
+            orders[i]['status'] = 'en proceso';
+          }
+        }
+      }
+
       await _dbService.saveOrders(orders);
 
       // 2. Sincronizar también órdenes cerradas para asegurar que aparezcan y actualicen estados

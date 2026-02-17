@@ -267,6 +267,19 @@ class OrderRepository {
 
   Future<void> _saveOrdersToLocal(List<dynamic> ordersData) async {
     final orders = ordersData.map((json) => _orderJsonToDbMap(json)).toList();
+    
+    // Smart merging: Prevenir que 'programada' sobrescriba 'en proceso' local
+    for (var i = 0; i < orders.length; i++) {
+      final newOrder = orders[i];
+      if (newOrder['status'] == 'programada') {
+        final localOrder = await _dbService.getOrderByNumber(newOrder['numero_orden']);
+        if (localOrder != null && localOrder['status'] == 'en proceso') {
+          // Mantener el estado local 'en proceso'
+          orders[i]['status'] = 'en proceso';
+        }
+      }
+    }
+
     await _dbService.saveOrders(orders);
     await _dbService.setLastSyncOrders(DateTime.now().millisecondsSinceEpoch ~/ 1000);
   }
